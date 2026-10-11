@@ -23,6 +23,7 @@ import { patchBrandWithLearningFenced } from '@api/collections/brands/services/b
 import { BrandLifecycleService } from '@api/collections/brands/services/brand-lifecycle.service';
 import { BrandOsPreviewService } from '@api/collections/brands/services/brand-os-preview.service';
 import {
+  type BrandRelocationActingUser,
   type BrandRelocationPreview,
   type BrandRelocationResult,
   BrandRelocationService,
@@ -91,6 +92,7 @@ import {
 } from '@nestjs/common';
 
 export type {
+  BrandRelocationActingUser,
   BrandRelocationMovingResource,
   BrandRelocationPreview,
   BrandRelocationResult,
@@ -948,7 +950,7 @@ export class BrandsService extends BaseService<
     updateBrandDto: Partial<UpdateBrandDto> & {
       organizationId?: string;
     },
-    actingUser: { userId: string; isSuperAdmin: boolean },
+    actingUser: BrandRelocationActingUser,
   ): Promise<BrandRelocationResult> {
     return this.brandRelocationService.relocateToOrganization(
       brandId,
@@ -961,7 +963,7 @@ export class BrandsService extends BaseService<
   async previewRelocation(
     brandId: string,
     destOrgId: string,
-    actingUser: { userId: string; isSuperAdmin: boolean },
+    actingUser: BrandRelocationActingUser,
   ): Promise<BrandRelocationPreview> {
     return this.brandRelocationService.previewRelocation(
       brandId,
