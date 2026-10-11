@@ -8445,6 +8445,7 @@ model BreakoutResponseOutput {
   state String @default("reserved")
   heldReason String?
   workflowExecutionId String?
+  publicationActor Json?
   artifact Post?
   isDeleted Boolean @default(false)
   createdAt DateTime @default(now())
