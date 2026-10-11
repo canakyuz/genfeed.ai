@@ -6,6 +6,7 @@ import { FeaturedWorkflowsService } from '@api/collections/workflows/services/fe
 import type { SystemWorkflowCatalogService } from '@api/collections/workflows/services/system-workflow-catalog.service';
 import {
   buildFeaturedWorkflowCopyPayload,
+  buildWorkflowClonePayload,
   buildWorkflowCreatePayload,
   getDefaultInputValuesFromWorkflowData,
   getMissingRequiredInputKeys,
@@ -24,12 +25,15 @@ import {
   validateTemplateInstantiationKey,
 } from '@api/collections/workflows/services/workflow-template-instantiation.util';
 import {
-  buildSystemWorkflowDuplicateMetadata,
   isProtectedSystemWorkflowMetadata,
   SYSTEM_WORKFLOW_METADATA_KEY,
 } from '@api/collections/workflows/system-workflow.contract';
 import { WORKFLOW_TEMPLATES } from '@api/collections/workflows/templates/workflow-templates';
 import { EXCLUDE_SYSTEM_WORKFLOW } from '@api/collections/workflows/utils/workflow-list-where.util';
+import {
+  resolveScheduleInitiatingActor,
+  type WorkflowSchedulePrincipal,
+} from '@api/collections/workflows/utils/workflow-schedule-actor.util';
 import {
   buildWorkflowVersionDefinition,
   createVersionedWorkflow,
@@ -223,6 +227,11 @@ export class WorkflowsService extends BaseService<
         'Template instantiation identity is immutable',
       );
     }
+    if ('scheduleInitiatingActor' in workflowPatch) {
+      throw new BadRequestException(
+        'The schedule initiating actor is server-owned',
+      );
+    }
     const configPatch = pickDefinedFields(
       workflowPatch,
       WORKFLOW_CONFIG_FIELDS,
@@ -365,6 +374,7 @@ export class WorkflowsService extends BaseService<
     organizationId: string,
     workflowData: CreateWorkflowDto,
     defaultBrandId?: string,
+    schedulePrincipal?: WorkflowSchedulePrincipal,
   ): Promise<WorkflowEntity> {
     const key = validateTemplateInstantiationKey(workflowData);
 
@@ -395,6 +405,7 @@ export class WorkflowsService extends BaseService<
         organizationId,
         resolveWorkflowBrandId((workflowData as WorkflowCreateExtras).brandId),
         defaultBrandId,
+        schedulePrincipal,
       );
     }
 
@@ -427,6 +438,7 @@ export class WorkflowsService extends BaseService<
         brandId,
         canonicalId,
         organizationId,
+        schedulePrincipal,
         userId,
       });
 
@@ -444,6 +456,12 @@ export class WorkflowsService extends BaseService<
       brandId,
       defaultLabel: `Workflow: ${workflowData.templateId || 'Custom'}`,
       organizationId,
+      scheduleInitiatingActor: resolveScheduleInitiatingActor({
+        isEnabled: workflowData.isScheduleEnabled,
+        organizationId,
+        principal: schedulePrincipal,
+        schedule: workflowData.schedule,
+      }),
       userId,
       workflowData: {
         ...(workflowData as WorkflowCreateExtras),
@@ -554,6 +572,7 @@ export class WorkflowsService extends BaseService<
     organizationId: string,
     targetBrandId?: string,
     fallbackBrandId?: string,
+    schedulePrincipal?: WorkflowSchedulePrincipal,
   ): Promise<WorkflowEntity> {
     const workflowDoc = await this.findVisibleOrThrow(workflowId, {
       organizationId,
@@ -562,8 +581,6 @@ export class WorkflowsService extends BaseService<
     const isProtectedSystemWorkflow = isProtectedSystemWorkflowMetadata(
       workflowDoc.metadata,
     );
-    const sourceWorkflowId = workflowDoc.id;
-    const sourceLabel = workflowDoc.label ?? 'Workflow';
 
     // An explicit target brand must be valid — fail loudly rather than
     // silently substituting a brand the caller didn't ask for.
@@ -587,49 +604,15 @@ export class WorkflowsService extends BaseService<
     await this.assertWorkflowBrandAccess(brandId, organizationId);
 
     const clonedWorkflow = await this.create(
-      buildWorkflowCreatePayload({
+      buildWorkflowClonePayload({
         brandId,
-        defaultLabel: `${sourceLabel} (Copy)`,
+        isProtectedSystemWorkflow,
+        isSourceBrandAccessible,
         organizationId,
+        schedulePrincipal,
+        source: workflowDoc,
+        targetBrandId,
         userId,
-        workflowData: {
-          config: workflowDoc.config,
-          defaultRecurringBrandId: isProtectedSystemWorkflow
-            ? null
-            : targetBrandId ||
-              (!isSourceBrandAccessible
-                ? brandId
-                : workflowDoc.defaultRecurringBrandId) ||
-              null,
-          description: workflowDoc.description ?? undefined,
-          edges: workflowDoc.edges,
-          edgeStyle: workflowDoc.edgeStyle,
-          executionCount: 0,
-          inputVariables: workflowDoc.inputVariables,
-          isScheduleEnabled: isProtectedSystemWorkflow
-            ? false
-            : workflowDoc.isScheduleEnabled,
-          label: `${sourceLabel} (Copy)`,
-          lastExecutedAt: undefined,
-          lockedNodeIds: isProtectedSystemWorkflow
-            ? []
-            : (workflowDoc.lockedNodeIds ?? []),
-          metadata: buildSystemWorkflowDuplicateMetadata(
-            workflowDoc.metadata,
-            sourceWorkflowId,
-          ),
-          nodes: workflowDoc.nodes,
-          progress: 0,
-          recurrence: undefined,
-          schedule: isProtectedSystemWorkflow
-            ? undefined
-            : (workflowDoc.schedule ?? undefined),
-          startedAt: undefined,
-          status: WorkflowStatus.DRAFT,
-          thumbnail: workflowDoc.thumbnail ?? undefined,
-          thumbnailNodeId: workflowDoc.thumbnailNodeId ?? undefined,
-          timezone: workflowDoc.timezone ?? undefined,
-        },
       }) as unknown as CreateWorkflowDto,
     );
 
