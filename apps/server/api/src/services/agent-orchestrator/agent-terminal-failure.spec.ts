@@ -6,8 +6,8 @@ vi.mock(
   }),
 );
 
-import { AgentOrchestratorBatchService } from './agent-orchestrator-batch.service';
 import { AgentOrchestratorStreamLoopService } from './agent-orchestrator-stream-loop.service';
+import { AgentOrchestratorTurboRunService } from './agent-orchestrator-turbo-run.service';
 
 describe('background agent terminal failures', () => {
   it('throws at the round budget instead of allowing an old assistant message to complete the run', async () => {
@@ -31,7 +31,7 @@ describe('background agent terminal failures', () => {
       {} as never,
       {} as never,
       {} as never,
-      { isBatchGenerationIntent: () => false } as never,
+      { isTurboRunIntent: () => false } as never,
       contextService as never,
       {} as never,
       effects as never,
@@ -84,7 +84,7 @@ describe('background agent terminal failures', () => {
       {} as never,
       {} as never,
       {} as never,
-      { isBatchGenerationIntent: () => false } as never,
+      { isTurboRunIntent: () => false } as never,
       contextService as never,
       {} as never,
       effects as never,
@@ -129,7 +129,7 @@ describe('background agent terminal failures', () => {
       publishStreamingToolCompleted: vi.fn(),
       publishStreamErrorOnly: vi.fn(),
     };
-    const service = new AgentOrchestratorBatchService(
+    const service = new AgentOrchestratorTurboRunService(
       {} as never,
       {} as never,
       executor as never,
@@ -138,7 +138,7 @@ describe('background agent terminal failures', () => {
       effects as never,
     );
     await expect(
-      service.tryHandleBatchGenerationTurnStream(
+      service.tryHandleTurboRunTurnStream(
         {
           context: {
             organizationId: 'org-1',

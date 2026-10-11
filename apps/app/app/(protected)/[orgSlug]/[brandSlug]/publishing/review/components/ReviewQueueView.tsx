@@ -5,7 +5,7 @@ import {
   CardVariant,
   PageScope,
 } from '@genfeedai/contracts';
-import type { IBatchSummary } from '@genfeedai/contracts/interfaces';
+import type { ITurboRunSummary } from '@genfeedai/contracts/interfaces';
 import PostDetailOverlay from '@pages/posts/detail/PostDetailOverlay';
 import type { ReviewQueueViewProps } from '@props/publishing/review-queue-view.props';
 import { getJsonApiErrorMessage } from '@services/core/json-api-error-message';
@@ -22,13 +22,13 @@ import ReviewStatusFilters, {
 } from './ReviewStatusFilters';
 import ReviewWorkspaceSurfaceAdapter from './ReviewWorkspaceSurfaceAdapter';
 
-export function getBatchOptionLabel(batch: IBatchSummary): string {
-  const shortId = batch.id.slice(-6);
+export function getTurboRunOptionLabel(turboRun: ITurboRunSummary): string {
+  const shortId = turboRun.id.slice(-6);
   const status =
-    typeof batch.status === 'string' && batch.status.trim()
-      ? batch.status.replaceAll('_', ' ').toLowerCase()
+    typeof turboRun.status === 'string' && turboRun.status.trim()
+      ? turboRun.status.replaceAll('_', ' ').toLowerCase()
       : '';
-  return `${shortId} · ${batch.totalCount} items${status ? ` · ${status}` : ''}`;
+  return `${shortId} · ${turboRun.totalCount} items${status ? ` · ${status}` : ''}`;
 }
 
 /**
@@ -39,16 +39,16 @@ export function getBatchOptionLabel(batch: IBatchSummary): string {
 export default function ReviewQueueView({
   activeFilters,
   activeItem,
-  activeBatch,
-  activeBatchError,
-  activeBatchId,
-  batchList,
-  batchesError,
-  canDiscardBatch,
+  activeTurboRun,
+  activeTurboRunError,
+  activeTurboRunId,
+  turboRunList,
+  turboRunsError,
+  canDiscardTurboRun,
   filterCounts,
-  hasInvalidBatchPayload,
+  hasInvalidTurboRunPayload,
   isActioning,
-  isBatchLoading,
+  isTurboRunLoading,
   isRefreshing = false,
   selectedIds,
   isRewriteStarting,
@@ -58,11 +58,11 @@ export default function ReviewQueueView({
   visibleItems,
   onApprove,
   onAssign,
-  onBatchChange,
+  onTurboRunChange,
   onBulkApprove,
   onBulkReject,
   onBulkRewrite,
-  onDiscardBatch,
+  onDiscardTurboRun,
   onClosePostDetail,
   onFilterChange,
   onRefresh,
@@ -98,13 +98,13 @@ export default function ReviewQueueView({
     );
   }, [activeItemId]);
 
-  const batchOptions = useMemo(
+  const turboRunOptions = useMemo(
     () =>
-      batchList.map((batch) => ({
-        label: getBatchOptionLabel(batch),
-        value: batch.id,
+      turboRunList.map((turboRun) => ({
+        label: getTurboRunOptionLabel(turboRun),
+        value: turboRun.id,
       })),
-    [batchList],
+    [turboRunList],
   );
 
   useEffect(() => {
@@ -115,11 +115,11 @@ export default function ReviewQueueView({
   }, [onRefresh, setRefresh]);
 
   useEffect(() => {
-    setIsRefreshing(isRefreshing || isBatchLoading);
-  }, [isBatchLoading, isRefreshing, setIsRefreshing]);
+    setIsRefreshing(isRefreshing || isTurboRunLoading);
+  }, [isTurboRunLoading, isRefreshing, setIsRefreshing]);
 
   useEffect(() => {
-    if (batchOptions.length === 0) {
+    if (turboRunOptions.length === 0) {
       setFiltersNode(null);
       return () => {
         setFiltersNode(null);
@@ -139,20 +139,20 @@ export default function ReviewQueueView({
           className={PUBLISH_HEADER_DROPDOWN_CLASS}
           name="review-batch"
           onChange={(_name, value) => {
-            onBatchChange(value);
+            onTurboRunChange(value);
           }}
-          options={batchOptions}
+          options={turboRunOptions}
           placeholder="Select batch"
           tooltip="Select review batch"
-          value={activeBatchId ?? ''}
+          value={activeTurboRunId ?? ''}
         />
-        {canDiscardBatch ? (
+        {canDiscardTurboRun ? (
           <Button
             className="h-8 shrink-0 gap-1.5 px-3 text-xs"
             icon={<Trash2 className="size-3.5" />}
             isDisabled={isActioning}
             label="Discard batch"
-            onClick={onDiscardBatch}
+            onClick={onDiscardTurboRun}
             size={ButtonSize.SM}
             variant={ButtonVariant.DESTRUCTIVE}
             withWrapper={false}
@@ -165,26 +165,26 @@ export default function ReviewQueueView({
       setFiltersNode(null);
     };
   }, [
-    activeBatchId,
+    activeTurboRunId,
     activeFilters,
-    batchOptions,
-    canDiscardBatch,
+    turboRunOptions,
+    canDiscardTurboRun,
     filterCounts,
     isActioning,
-    onBatchChange,
-    onDiscardBatch,
+    onTurboRunChange,
+    onDiscardTurboRun,
     onFilterChange,
     setFiltersNode,
   ]);
 
-  if (batchesError || hasInvalidBatchPayload) {
+  if (turboRunsError || hasInvalidTurboRunPayload) {
     return (
       <Card
         variant={CardVariant.DEFAULT}
         icon={TriangleAlert}
         label="Unable to load the review queue"
         description={getJsonApiErrorMessage(
-          batchesError,
+          turboRunsError,
           'The review batches response was invalid or failed to load. Refresh the page and check the batches API.',
         )}
         bodyClassName="items-center py-12 text-center"
@@ -194,7 +194,7 @@ export default function ReviewQueueView({
     );
   }
 
-  if (batchList.length === 0) {
+  if (turboRunList.length === 0) {
     return (
       <Card
         variant={CardVariant.DEFAULT}
@@ -224,9 +224,9 @@ export default function ReviewQueueView({
           </p>
         </div>
       </div>
-      {isBatchLoading && !activeBatch ? (
+      {isTurboRunLoading && !activeTurboRun ? (
         <Loading />
-      ) : activeBatchError ? (
+      ) : activeTurboRunError ? (
         <Card
           variant={CardVariant.DEFAULT}
           icon={TriangleAlert}
@@ -236,7 +236,7 @@ export default function ReviewQueueView({
           iconWrapperClassName="bg-warning/10 text-warning"
           className="max-w-xl mx-auto"
         />
-      ) : activeBatch ? (
+      ) : activeTurboRun ? (
         <>
           <ReviewWorkspaceSurfaceAdapter
             activeItem={activeItem}

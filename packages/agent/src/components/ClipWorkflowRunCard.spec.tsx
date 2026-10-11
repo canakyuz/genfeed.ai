@@ -40,7 +40,7 @@ describe('ClipWorkflowRunCard', () => {
     };
 
     const apiService = {
-      createManualReviewBatch: vi.fn().mockResolvedValue({
+      createManualReviewTurboRun: vi.fn().mockResolvedValue({
         id: 'batch-123',
         items: [{ id: 'item-456', postId: 'post-789' }],
       }),
@@ -96,7 +96,7 @@ describe('ClipWorkflowRunCard', () => {
 
     await waitFor(() => {
       expect(locationMock.href).toBe(
-        '/publishing/posts?view=approvals&batch=batch-123&item=item-456',
+        '/publishing/posts?view=approvals&run=batch-123&item=item-456',
       );
     });
   });
@@ -120,7 +120,7 @@ describe('ClipWorkflowRunCard', () => {
     };
 
     const apiService = {
-      createManualReviewBatch: vi.fn(),
+      createManualReviewTurboRun: vi.fn(),
       createPrompt: vi.fn().mockResolvedValue({ id: 'prompt-123' }),
       generateIngredient: vi.fn(),
       mergeVideos: vi.fn(),

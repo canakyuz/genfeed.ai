@@ -116,7 +116,7 @@ describe('BrandRemixRunsService', () => {
     generateAvatarVideo: vi.fn(),
     quotePlatformCredits: vi.fn().mockResolvedValue(1),
   };
-  const batchGenerationService = { createManualReviewBatch: vi.fn() };
+  const turboRunService = { createManualReviewTurboRun: vi.fn() };
   const trendReferenceCorpusService = { recordPostRemixLineage: vi.fn() };
   const contentGeneratorService = { generateContent: vi.fn() };
   const pausedMetaCampaignDraftService = { prepare: vi.fn() };
@@ -247,7 +247,7 @@ describe('BrandRemixRunsService', () => {
     const graph = assembleBrandRemixRunsGraph({
       adsResearchService: adsResearchService as never,
       avatarVideoGenerationService: avatarVideoGenerationService as never,
-      batchGenerationService: batchGenerationService as never,
+      turboRunService: turboRunService as never,
       brandsService: brandsService as never,
       byokService: byokService as never,
       contentGeneratorService: contentGeneratorService as never,
@@ -2815,7 +2815,7 @@ describe('BrandRemixRunsService', () => {
           status: IngredientStatus.GENERATED,
         },
       ]);
-      batchGenerationService.createManualReviewBatch.mockResolvedValue({
+      turboRunService.createManualReviewTurboRun.mockResolvedValue({
         id: 'batch-1',
         items: [{ id: 'item-1', postId: 'post-1' }],
       });
@@ -2830,9 +2830,7 @@ describe('BrandRemixRunsService', () => {
         variantIds: ['variant-1'],
       });
 
-      expect(
-        batchGenerationService.createManualReviewBatch,
-      ).toHaveBeenCalledWith(
+      expect(turboRunService.createManualReviewTurboRun).toHaveBeenCalledWith(
         {
           brandId: 'brand-1',
           items: [
@@ -2859,7 +2857,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'in_review',
         review: {
           approvedPostIds: [],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'workflow-execution-1',
           workflowId: 'workflow-1',
@@ -2908,7 +2906,7 @@ describe('BrandRemixRunsService', () => {
           status: IngredientStatus.GENERATED,
         },
       ]);
-      batchGenerationService.createManualReviewBatch.mockResolvedValue({
+      turboRunService.createManualReviewTurboRun.mockResolvedValue({
         id: 'batch-1',
         items: [{ id: 'item-1', postId: 'post-1' }],
       });
@@ -2935,9 +2933,7 @@ describe('BrandRemixRunsService', () => {
         },
         status: 409,
       });
-      expect(
-        batchGenerationService.createManualReviewBatch,
-      ).not.toHaveBeenCalled();
+      expect(turboRunService.createManualReviewTurboRun).not.toHaveBeenCalled();
       expect(
         trendReferenceCorpusService.recordPostRemixLineage,
       ).not.toHaveBeenCalled();
@@ -3022,9 +3018,7 @@ describe('BrandRemixRunsService', () => {
           }),
         }),
       );
-      expect(
-        batchGenerationService.createManualReviewBatch,
-      ).not.toHaveBeenCalled();
+      expect(turboRunService.createManualReviewTurboRun).not.toHaveBeenCalled();
       expect(
         trendReferenceCorpusService.recordPostRemixLineage,
       ).not.toHaveBeenCalled();
@@ -3064,7 +3058,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'workflow-execution-1',
           workflowId: 'workflow-1',
@@ -3180,7 +3174,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'workflow-execution-1',
           workflowId: 'workflow-1',
@@ -3302,7 +3296,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'workflow-execution-1',
           workflowId: 'workflow-1',
@@ -3399,7 +3393,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'workflow-execution-1',
           workflowId: 'workflow-1',
@@ -3498,7 +3492,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'workflow-execution-1',
           workflowId: 'workflow-1',
@@ -3596,7 +3590,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'review-workflow-execution-1',
           workflowId: 'review-workflow-1',
@@ -3807,7 +3801,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'review-workflow-execution-1',
           workflowId: 'review-workflow-1',
@@ -3926,7 +3920,7 @@ describe('BrandRemixRunsService', () => {
         phase: 'approved',
         review: {
           approvedPostIds: ['post-1'],
-          batchId: 'batch-1',
+          turboRunId: 'batch-1',
           postIds: ['post-1'],
           workflowExecutionId: 'review-workflow-execution-1',
           workflowId: 'review-workflow-1',
@@ -4293,7 +4287,7 @@ describe('BrandRemixRunsService', () => {
       phase: 'approved',
       review: {
         approvedPostIds: ['post-1'],
-        batchId: 'batch-1',
+        turboRunId: 'batch-1',
         postIds: ['post-1'],
         workflowExecutionId: 'review-workflow-execution-1',
         workflowId: 'review-workflow-1',

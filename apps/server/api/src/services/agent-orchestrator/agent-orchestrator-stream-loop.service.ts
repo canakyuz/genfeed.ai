@@ -8,8 +8,8 @@ import { scopedWhere } from '@api/index';
 import { AgentAutoModelResolverService } from '@api/services/agent-orchestrator/agent-auto-model-resolver.service';
 import { AgentChatModelRegistryService } from '@api/services/agent-orchestrator/agent-chat-model-registry.service';
 import { AgentCompletionCardBuilderService } from '@api/services/agent-orchestrator/agent-completion-card-builder.service';
-import { AgentOrchestratorBatchService } from '@api/services/agent-orchestrator/agent-orchestrator-batch.service';
 import { AgentOrchestratorContextService } from '@api/services/agent-orchestrator/agent-orchestrator-context.service';
+import { AgentOrchestratorTurboRunService } from '@api/services/agent-orchestrator/agent-orchestrator-turbo-run.service';
 import { AgentStreamEffectsService } from '@api/services/agent-orchestrator/agent-stream-effects.service';
 import {
   type AgentToolRoundState,
@@ -38,11 +38,11 @@ import {
   maybeUpdateThreadTitle,
 } from '@api/services/agent-orchestrator/utils/agent-thread-title.util';
 import {
-  BATCH_SCOPED_ALLOWED_TOOLS,
   buildAgentChatCompletionParams,
   buildToolDefinitions,
   mergeAllowedTools,
   resolveBlockedTools,
+  TURBO_RUN_SCOPED_ALLOWED_TOOLS,
 } from '@api/services/agent-orchestrator/utils/agent-tool-definitions.util';
 import { sanitizeAgentOutputText } from '@api/services/agent-orchestrator/utils/sanitize-agent-output.util';
 import { LlmDispatcherService } from '@api/services/integrations/llm/llm-dispatcher.service';
@@ -96,7 +96,7 @@ export class AgentOrchestratorStreamLoopService {
     private readonly agentMessagesService: AgentMessagesService,
     private readonly creditsUtilsService: CreditsUtilsService,
     private readonly turnRoundRunner: AgentTurnRoundRunnerService,
-    private readonly batchService: AgentOrchestratorBatchService,
+    private readonly turboRunService: AgentOrchestratorTurboRunService,
     private readonly contextService: AgentOrchestratorContextService,
     private readonly completionCardBuilder: AgentCompletionCardBuilderService,
     private readonly streamEffects: AgentStreamEffectsService,
@@ -242,8 +242,8 @@ export class AgentOrchestratorStreamLoopService {
           ?.content?.toString?.() ?? '';
       const scopedTools =
         source !== 'proactive' &&
-        this.batchService.isBatchGenerationIntent(latestUserMessage)
-          ? BATCH_SCOPED_ALLOWED_TOOLS
+        this.turboRunService.isTurboRunIntent(latestUserMessage)
+          ? TURBO_RUN_SCOPED_ALLOWED_TOOLS
           : undefined;
       const tools = buildToolDefinitions(
         mergeAllowedTools(baseTools, scopedTools),

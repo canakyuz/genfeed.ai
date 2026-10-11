@@ -443,7 +443,7 @@
     "submit": "Submit answers",
     "failed": "Your answer was not saved. Try again."
   },
-  "batchGenerationResultCard": {
+  "turboRunResultCard": {
     "noDraftPreview": "No preview available for this draft.",
     "openDraft": "Open draft",
     "openDraftAria": "Open {platform} draft in review",

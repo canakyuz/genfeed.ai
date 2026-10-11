@@ -187,12 +187,12 @@ export default function PublishingContentLibrary({
           const result: IReleaseGroup[] = [];
           let page = 1;
           while (!signal.aborted) {
-            const batch = await releasesService.findAllPage(
+            const turboRun = await releasesService.findAllPage(
               { ...(brandId ? { brandId } : {}), page, limit: 100 },
               signal,
             );
-            result.push(...batch.items);
-            if (!batch.hasNext) break;
+            result.push(...turboRun.items);
+            if (!turboRun.hasNext) break;
             page += 1;
           }
           signal.throwIfAborted();
@@ -321,7 +321,7 @@ export default function PublishingContentLibrary({
       }
       if (key === 'view') {
         // Approval queue state does not apply to the other Posts views.
-        params.delete('batch');
+        params.delete('run');
         params.delete('filter');
         params.delete('item');
       }

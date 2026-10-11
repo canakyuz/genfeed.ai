@@ -384,12 +384,12 @@ export class ClipContinuityWorkflowService implements OnModuleInit {
     organizationId: string,
     report: VideoContinuityQaReport,
   ): Promise<void> {
-    const [tasks, batchItems] = await Promise.all([
+    const [tasks, turboRunItems] = await Promise.all([
       this.prisma.task.findMany({
         select: { decomposition: true, id: true },
         where: scopedWhere(organizationId, { projectId }),
       }),
-      this.prisma.batchItem.findMany({
+      this.prisma.turboRunItem.findMany({
         select: { data: true, id: true },
         where: scopedWhere(organizationId, {
           OR: [
@@ -416,8 +416,8 @@ export class ClipContinuityWorkflowService implements OnModuleInit {
           where: scopedWhere(organizationId, { id: task.id }),
         }),
       ),
-      ...batchItems.map((item) =>
-        this.prisma.batchItem.updateMany({
+      ...turboRunItems.map((item) =>
+        this.prisma.turboRunItem.updateMany({
           data: {
             data: toPrismaJson({
               ...this.readRecord(item.data),

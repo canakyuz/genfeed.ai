@@ -498,11 +498,11 @@ describe('OrganizationsSettingsController', () => {
         await controller.updateSettings(
           memberRequest(organizationA),
           organizationA,
-          { moduleOverrides: { messages: true, batch: true } },
+          { moduleOverrides: { messages: true, turbo: true } },
         );
         expect(organizationSettingsService.patch).toHaveBeenCalledWith(
           mockOrganizationSettings.id,
-          { moduleOverrides: { messages: true, batch: true } },
+          { moduleOverrides: { messages: true, turbo: true } },
         );
       });
 

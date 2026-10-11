@@ -48,8 +48,8 @@ export const ORGANIZATION_MODULES = {
     isToggleable: true,
     isFounderOnly: true,
   },
-  batch: {
-    label: 'Batch',
+  turbo: {
+    label: 'Turbo',
     isDefaultEnabled: false,
     requiresSubscription: false,
     isToggleable: true,
@@ -107,7 +107,7 @@ export const organizationModuleOverridesSchema = z.strictObject({
   analytics: z.boolean().optional(),
   motion: z.boolean().optional(),
   clips: z.boolean().optional(),
-  batch: z.boolean().optional(),
+  turbo: z.boolean().optional(),
   editor: z.boolean().optional(),
   automation: z.boolean().optional(),
   messages: z.boolean().optional(),

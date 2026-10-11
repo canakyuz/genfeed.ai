@@ -46,10 +46,10 @@ import type {
   ReviewInboxItem,
 } from '@props/home/operational-home-sections.props';
 import type { OverviewBootstrapPayload } from '@services/auth/auth.service';
-import { BatchesService } from '@services/batch/batches.service';
 import { ReleaseGroupsService } from '@services/content/release-groups.service';
 import { logger } from '@services/core/logger.service';
 import { NotificationsService } from '@services/core/notifications.service';
+import { TurboRunsService } from '@services/turbo/turbo-runs.service';
 import MetricCard, { MetricSummary } from '@ui/cards/metric-card/MetricCard';
 import { MetricCardGrid } from '@ui/cards/metric-card/MetricCardGrid';
 import PlatformBadge from '@ui/display/platform-badge/PlatformBadge';
@@ -237,7 +237,7 @@ function NeedsYouSurface({
           orgSlug,
           brandSlug,
           createPublishingApprovalsRoute({
-            batch: item.batchId,
+            run: item.turboRunId,
             item: item.id,
           }),
         )
@@ -924,8 +924,8 @@ export default function OperationalHomeSections({
   const areExecutionsLoading = Boolean(brandId) && isWorkflowExecutionsLoading;
   const publishing = useHomePublications(organizationId, brandId);
   const notifications = useMemo(() => NotificationsService.getInstance(), []);
-  const getBatchesService = useAuthedService((token: string) =>
-    BatchesService.getInstance(token),
+  const getTurboRunsService = useAuthedService((token: string) =>
+    TurboRunsService.getInstance(token),
   );
   const failedExecutions = executions.filter(
     (execution) => execution.status === WorkflowExecutionStatus.FAILED,
@@ -945,8 +945,8 @@ export default function OperationalHomeSections({
   const handleApproveReviewItem = useCallback(
     async (item: ReviewInboxItem) => {
       try {
-        const service = await getBatchesService();
-        await service.itemAction(item.batchId, {
+        const service = await getTurboRunsService();
+        await service.itemAction(item.turboRunId, {
           action: 'approve',
           itemIds: [item.id],
         });
@@ -956,7 +956,7 @@ export default function OperationalHomeSections({
         notifications.error(translate('home.approvals.approveError'));
       }
     },
-    [getBatchesService, notifications, refresh, translate],
+    [getTurboRunsService, notifications, refresh, translate],
   );
   const brandSetupHref = createOrganizationAppRoute(
     orgSlug,

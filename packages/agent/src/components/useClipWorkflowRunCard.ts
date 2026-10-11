@@ -274,7 +274,7 @@ export function useClipWorkflowRunCard({
     let nextUrl = draftReviewUrl;
 
     if (action.brandId) {
-      const batch = await apiService.createManualReviewBatch({
+      const turboRun = await apiService.createManualReviewTurboRun({
         brandId: action.brandId,
         items: [
           {
@@ -291,8 +291,8 @@ export function useClipWorkflowRunCard({
         ],
       });
       nextUrl = createPublishingApprovalsRoute({
-        batch: batch.id,
-        item: batch.items[0]?.id,
+        run: turboRun.id,
+        item: turboRun.items[0]?.id,
       });
     }
 

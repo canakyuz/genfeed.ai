@@ -17,21 +17,21 @@ describe('publishing-posts-routes.constant', () => {
     );
   });
 
-  it('carries the approval batch, filter and item, skipping empty values', () => {
+  it('carries the Turbo run, filter and item, skipping empty values', () => {
     expect(
       createPublishingApprovalsRoute({
-        batch: 'batch-1',
         filter: 'ready',
         item: 'item-2',
+        run: 'run-1',
       }),
     ).toBe(
-      '/publishing/posts?view=approvals&batch=batch-1&filter=ready&item=item-2',
+      '/publishing/posts?view=approvals&run=run-1&filter=ready&item=item-2',
     );
     expect(
       createPublishingApprovalsRoute({
-        batch: null,
         filter: undefined,
         item: '',
+        run: null,
       }),
     ).toBe('/publishing/posts?view=approvals');
   });

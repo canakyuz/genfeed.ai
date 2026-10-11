@@ -1,32 +1,32 @@
 import { isEntityId } from '@api/helpers/validation/entity-id.validator';
 import type { ToolExecutionContext } from '@api/services/agent-orchestrator/tools/agent-tool-executor.service';
-import { BatchGenerationService } from '@api/services/batch-generation/batch-generation.service';
+import { TurboRunService } from '@api/services/turbo-run/turbo-run.service';
 import {
-  BatchItemStatus,
   formatPlatformLabel,
   normalizeReviewDecision,
   ReviewDecision,
+  TurboRunItemStatus,
 } from '@genfeedai/contracts';
 import { createPublishingApprovalsRoute } from '@genfeedai/contracts/constants';
 import type { AgentToolResult } from '@genfeedai/contracts/interfaces';
 import { Injectable, Optional } from '@nestjs/common';
 
 /**
- * Review-queue tools (`list_review_queue`, `batch_approve_reject`).
+ * Review-queue tools (`list_review_queue`, `review_turbo_items`).
  * Extracted from AgentToolExecutorService per #519.
  */
 @Injectable()
 export class AgentReviewToolHandler {
   constructor(
     @Optional()
-    private readonly batchGenerationService?: BatchGenerationService,
+    private readonly turboRunService?: TurboRunService,
   ) {}
 
   async listReviewQueue(
     params: Record<string, unknown>,
     ctx: ToolExecutionContext,
   ): Promise<AgentToolResult> {
-    if (!this.batchGenerationService) {
+    if (!this.turboRunService) {
       return {
         creditsUsed: 0,
         error: 'Batch generation service not available',
@@ -34,8 +34,8 @@ export class AgentReviewToolHandler {
       };
     }
 
-    const rawBatchId = params.batchId;
-    const batchId = this.normalizeBatchIdParam(rawBatchId);
+    const rawTurboRunId = params.turboRunId;
+    const turboRunId = this.normalizeTurboRunIdParam(rawTurboRunId);
     const limit =
       typeof params.limit === 'number' && Number.isFinite(params.limit)
         ? Math.max(1, Math.min(params.limit, 50))
@@ -44,25 +44,25 @@ export class AgentReviewToolHandler {
     // Models often pass placeholders ("pending", "all", "null", empty) when the
     // operator asks for "the review queue" without a batch. Never hard-fail the
     // run — fall through to the brand/org review inbox instead.
-    const hadInvalidBatchId =
-      rawBatchId != null &&
-      !(typeof rawBatchId === 'string' && rawBatchId.trim() === '') &&
-      !batchId;
+    const hadInvalidTurboRunId =
+      rawTurboRunId != null &&
+      !(typeof rawTurboRunId === 'string' && rawTurboRunId.trim() === '') &&
+      !turboRunId;
 
-    if (batchId) {
-      return this.listReviewQueueForBatch(batchId, params, ctx, limit);
+    if (turboRunId) {
+      return this.listReviewQueueForTurboRun(turboRunId, params, ctx, limit);
     }
 
-    return this.listReviewInbox(ctx, limit, hadInvalidBatchId);
+    return this.listReviewInbox(ctx, limit, hadInvalidTurboRunId);
   }
 
-  private async listReviewQueueForBatch(
-    batchId: string,
+  private async listReviewQueueForTurboRun(
+    turboRunId: string,
     params: Record<string, unknown>,
     ctx: ToolExecutionContext,
     limit: number,
   ): Promise<AgentToolResult> {
-    if (!this.batchGenerationService) {
+    if (!this.turboRunService) {
       return {
         creditsUsed: 0,
         error: 'Batch generation service not available',
@@ -70,21 +70,21 @@ export class AgentReviewToolHandler {
       };
     }
 
-    const batch = await this.batchGenerationService.getBatch(
-      batchId,
+    const turboRun = await this.turboRunService.getTurboRun(
+      turboRunId,
       ctx.organizationId,
     );
 
-    if (!batch) {
+    if (!turboRun) {
       return {
         creditsUsed: 0,
-        error: `Batch ${batchId} not found`,
+        error: `Batch ${turboRunId} not found`,
         success: false,
       };
     }
 
     const statusFilter = params.status as string | undefined;
-    let items = batch.items || [];
+    let items = turboRun.items || [];
 
     if (statusFilter) {
       items = items.filter(
@@ -118,11 +118,11 @@ export class AgentReviewToolHandler {
       } else if (decision === ReviewDecision.REQUEST_CHANGES) {
         changesRequestedCount += 1;
       } else if (decision === ReviewDecision.UNSET) {
-        if (item.status === BatchItemStatus.COMPLETED) {
+        if (item.status === TurboRunItemStatus.COMPLETED) {
           readyCount += 1;
         } else if (
-          item.status === BatchItemStatus.PENDING ||
-          item.status === BatchItemStatus.PROCESSING
+          item.status === TurboRunItemStatus.PENDING ||
+          item.status === TurboRunItemStatus.PROCESSING
         ) {
           pendingCount += 1;
         }
@@ -148,21 +148,21 @@ export class AgentReviewToolHandler {
       creditsUsed: 0,
       data: {
         approvedCount,
-        batchId: String(batch.id),
-        batchStatus: batch.status,
+        turboRunId: String(turboRun.id),
+        turboRunStatus: turboRun.status,
         changesRequestedCount,
         items: visibleItems,
         pendingCount,
         readyCount,
-        totalCount: batch.totalCount,
+        totalCount: turboRun.totalCount,
       },
       nextActions: [
         {
-          id: `review-queue-${String(batch.id)}`,
+          id: `review-queue-${String(turboRun.id)}`,
           outcomeBullets,
           primaryCta: {
             href: createPublishingApprovalsRoute({
-              batch: String(batch.id),
+              run: String(turboRun.id),
               filter: 'ready',
             }),
             label: 'Open reviews',
@@ -180,9 +180,9 @@ export class AgentReviewToolHandler {
   private async listReviewInbox(
     ctx: ToolExecutionContext,
     limit: number,
-    hadInvalidBatchId: boolean,
+    hadInvalidTurboRunId: boolean,
   ): Promise<AgentToolResult> {
-    if (!this.batchGenerationService) {
+    if (!this.turboRunService) {
       return {
         creditsUsed: 0,
         error: 'Batch generation service not available',
@@ -190,7 +190,7 @@ export class AgentReviewToolHandler {
       };
     }
 
-    const inbox = await this.batchGenerationService.getReviewInboxSummary(
+    const inbox = await this.turboRunService.getReviewInboxSummary(
       ctx.organizationId,
       ctx.brandId,
       limit,
@@ -202,7 +202,7 @@ export class AgentReviewToolHandler {
     const summaryText =
       readyCount === 0 && pendingCount === 0
         ? 'Nothing is waiting for review right now.'
-        : `Review inbox: ${readyCount} ready for review, ${pendingCount} still generating${hadInvalidBatchId ? ' (ignored an invalid batch id from the model and loaded the full queue).' : '.'}`;
+        : `Review inbox: ${readyCount} ready for review, ${pendingCount} still generating${hadInvalidTurboRunId ? ' (ignored an invalid Turbo run id from the model and loaded the full queue).' : '.'}`;
 
     const outcomeBullets = recentItems.slice(0, 4).map((item) => {
       const platformLabel = formatPlatformLabel(item.platform);
@@ -223,7 +223,7 @@ export class AgentReviewToolHandler {
         pendingCount,
         readyCount,
         recentItems: recentItems.map((item) => ({
-          batchId: item.batchId,
+          turboRunId: item.turboRunId,
           format: item.format,
           id: item.id,
           mediaUrl: item.mediaUrl,
@@ -259,11 +259,11 @@ export class AgentReviewToolHandler {
     };
   }
 
-  async batchApproveReject(
+  async reviewTurboItems(
     params: Record<string, unknown>,
     ctx: ToolExecutionContext,
   ): Promise<AgentToolResult> {
-    if (!this.batchGenerationService) {
+    if (!this.turboRunService) {
       return {
         creditsUsed: 0,
         error: 'Batch generation service not available',
@@ -271,14 +271,14 @@ export class AgentReviewToolHandler {
       };
     }
 
-    const batchId = this.normalizeBatchIdParam(params.batchId);
+    const turboRunId = this.normalizeTurboRunIdParam(params.turboRunId);
     const itemIds = params.itemIds as string[];
     const action = params.action as string;
 
-    if (!batchId || !itemIds?.length || !action) {
+    if (!turboRunId || !itemIds?.length || !action) {
       return {
         creditsUsed: 0,
-        error: 'batchId, itemIds, and action are required',
+        error: 'turboRunId, itemIds, and action are required',
         success: false,
       };
     }
@@ -290,10 +290,10 @@ export class AgentReviewToolHandler {
           'Model and conversation actions cannot grant publish approval. Use the typed review control.',
         nextActions: [
           {
-            id: `review-queue-approval-${batchId}`,
+            id: `review-queue-approval-${turboRunId}`,
             primaryCta: {
               href: createPublishingApprovalsRoute({
-                batch: batchId,
+                run: turboRunId,
                 filter: 'ready',
               }),
               label: 'Review exact versions',
@@ -309,8 +309,8 @@ export class AgentReviewToolHandler {
       };
     }
 
-    await this.batchGenerationService.rejectItems(
-      batchId,
+    await this.turboRunService.rejectItems(
+      turboRunId,
       itemIds,
       ctx.organizationId,
     );
@@ -319,21 +319,21 @@ export class AgentReviewToolHandler {
       creditsUsed: 1,
       data: {
         action,
-        batchId,
+        turboRunId,
         itemCount: itemIds.length,
       },
       success: true,
     };
   }
 
-  private normalizeBatchIdParam(value: unknown): string | undefined {
+  private normalizeTurboRunIdParam(value: unknown): string | undefined {
     if (typeof value !== 'string') {
       return undefined;
     }
 
     const normalized = value
       .trim()
-      .replace(/^batch\s*id\s*/i, '')
+      .replace(/^turboRun\s*id\s*/i, '')
       .replace(/^[:#\s-]+/, '')
       .trim();
 

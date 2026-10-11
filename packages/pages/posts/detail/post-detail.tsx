@@ -141,7 +141,8 @@ export default function PostDetail({
     ? {
         generationId: (post as { generationId?: string }).generationId,
         promptUsed: (post as { promptUsed?: string }).promptUsed,
-        reviewBatchId: (post as { reviewBatchId?: string }).reviewBatchId,
+        reviewTurboRunId: (post as { reviewTurboRunId?: string })
+          .reviewTurboRunId,
         reviewDecision: normalizeReviewDecision(post.reviewDecision),
         reviewEvents: post.reviewEvents,
         reviewedAt: (post as { reviewedAt?: string }).reviewedAt,
@@ -189,8 +190,8 @@ export default function PostDetail({
             router.push(
               href(
                 createPublishingApprovalsRoute({
-                  batch: draft.reviewBatchId,
-                  filter: draft.reviewBatchId ? 'ready' : undefined,
+                  run: draft.reviewTurboRunId,
+                  filter: draft.reviewTurboRunId ? 'ready' : undefined,
                 }),
               ),
             );

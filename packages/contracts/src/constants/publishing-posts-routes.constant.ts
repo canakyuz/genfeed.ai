@@ -38,22 +38,22 @@ export interface PublishingPostsFilterRouteOptions {
 }
 
 export interface PublishingApprovalsRouteOptions {
-  /** Review batch to open. */
-  batch?: string | null;
   /** Approval queue filter, e.g. `ready`. */
   filter?: string | null;
   /** Review item to focus. */
   item?: string | null;
+  /** Turbo run to open. */
+  run?: string | null;
 }
 
 /** #5502 deep link into the Posts approval view. */
 export function createPublishingApprovalsRoute({
-  batch,
   filter,
   item,
+  run,
 }: PublishingApprovalsRouteOptions = {}): string {
   const params = new URLSearchParams({ view: 'approvals' });
-  if (batch) params.set('batch', batch);
+  if (run) params.set('run', run);
   if (filter) params.set('filter', filter);
   if (item) params.set('item', item);
   return `${APP_ROUTES.PUBLISHING.POSTS}?${params.toString()}`;

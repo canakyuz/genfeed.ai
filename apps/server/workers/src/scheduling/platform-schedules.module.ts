@@ -15,7 +15,6 @@ import { LoggerModule } from '@libs/logger/logger.module';
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@workers/config/config.module';
-import { CronBatchGenerationModule } from '@workers/crons/batch-generation/cron.batch-generation.module';
 import { CronCredentialsModule } from '@workers/crons/credentials/cron.credentials.module';
 import { CronCreditsModule } from '@workers/crons/credits/cron.credits.module';
 import { CronEngagementModule } from '@workers/crons/engagement/cron.engagement.module';
@@ -36,6 +35,7 @@ import { CronStreaksModule } from '@workers/crons/streaks/cron.streaks.module';
 import { CronTiktokModule } from '@workers/crons/tiktok/cron.tiktok.module';
 import { CronTranscriptPurgeModule } from '@workers/crons/transcript-purge/cron.transcript-purge.module';
 import { CronTrendsModule } from '@workers/crons/trends/cron.trends.module';
+import { CronTurboRunModule } from '@workers/crons/turbo-run/cron.turbo-run.module';
 import { CronWorkflowArtifactsModule } from '@workers/crons/workflow-artifacts/cron.workflow-artifacts.module';
 import { CronXRepliesModule } from '@workers/crons/x-replies/cron.x-replies.module';
 import { CronYoutubeModule } from '@workers/crons/youtube/cron.youtube.module';
@@ -77,7 +77,7 @@ import { CrunReconcileService } from '@workers/services/crun-reconcile.service';
       // The registry drains platform-sweep jobs queued here before #5162.
       { name: WORKFLOW_EXECUTION_QUEUE },
     ),
-    CronBatchGenerationModule,
+    CronTurboRunModule,
     CronCredentialsModule,
     CronCreditsModule,
     CronEngagementModule,

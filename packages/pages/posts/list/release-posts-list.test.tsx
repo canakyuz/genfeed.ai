@@ -179,7 +179,7 @@ describe('ReleasePostsList selection from the release URL param', () => {
 
   it('renders the approval queue as a Posts view and clears its selection on leave', () => {
     searchParams = new URLSearchParams(
-      'view=approvals&account=a&batch=batch-1&filter=ready&item=item-1',
+      'view=approvals&account=a&run=batch-1&filter=ready&item=item-1',
     );
     setLeadingNode.mockClear();
     render(

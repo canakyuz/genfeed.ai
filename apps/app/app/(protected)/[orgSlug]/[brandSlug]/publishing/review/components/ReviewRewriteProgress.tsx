@@ -1,8 +1,8 @@
 import {
-  BatchRewriteJobStatus,
   ButtonSize,
   ButtonVariant,
   CardVariant,
+  TurboRewriteJobStatus,
 } from '@genfeedai/contracts';
 import type { ReviewRewriteProgressProps } from '@props/publishing/review-rewrite-progress.props';
 import Card from '@ui/card/Card';
@@ -20,10 +20,10 @@ export default function ReviewRewriteProgress({
   job,
   onCancel,
 }: ReviewRewriteProgressProps) {
-  const translate = useTranslations('common.batchRewrite');
+  const translate = useTranslations('common.turboRewrite');
   const total = job.itemIds.length;
   const handled = job.completedItemIds.length + job.failedItems.length;
-  const isQueued = job.status === BatchRewriteJobStatus.QUEUED;
+  const isQueued = job.status === TurboRewriteJobStatus.QUEUED;
 
   return (
     <Card

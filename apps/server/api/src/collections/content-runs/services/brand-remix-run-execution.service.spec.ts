@@ -92,7 +92,7 @@ describe('BrandRemixRunExecutionService', () => {
     const graph = assembleBrandRemixRunsGraph({
       adsResearchService: {} as never,
       avatarVideoGenerationService: {} as never,
-      batchGenerationService: {} as never,
+      turboRunService: {} as never,
       brandsService: brandsService as never,
       byokService: byokService as never,
       contentGeneratorService: {} as never,
@@ -290,7 +290,7 @@ describe('BrandRemixRunExecutionService', () => {
     const graph = assembleBrandRemixRunsGraph({
       adsResearchService: {} as never,
       avatarVideoGenerationService: {} as never,
-      batchGenerationService: {} as never,
+      turboRunService: {} as never,
       brandsService: brandsService as never,
       byokService: byokService as never,
       contentGeneratorService: {} as never,

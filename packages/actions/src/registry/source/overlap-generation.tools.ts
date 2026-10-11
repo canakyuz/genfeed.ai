@@ -1,9 +1,9 @@
-import { BATCH_CAPTION_BASE_CREDITS } from '@genfeedai/contracts/constants/batch-generation-pricing.constant';
 import { ENHANCE_PROMPT_CREDIT_COST } from '@genfeedai/contracts/constants/tool-credit.constant';
+import { TURBO_RUN_CAPTION_BASE_CREDITS } from '@genfeedai/contracts/constants/turbo-run-pricing.constant';
 import type { SourceTool } from '../../interfaces/source-tool.interface';
 
 /**
- * Batch-generation definition split out of `overlap.tools.ts` to keep that
+ * Turbo run definition split out of `overlap.tools.ts` to keep that
  * module under the per-file line budget (`source-tools.test.ts`). Its Agent/MCP
  * availability is declared only in `curated-action-catalog.ts`.
  */
@@ -243,10 +243,10 @@ export const OVERLAP_GENERATION_TOOLS: SourceTool[] = [
   {
     // Floor for preflight only. Real amount is format+model-aware and billed
     // dynamically in the handler (isBillingDelegated).
-    creditCost: BATCH_CAPTION_BASE_CREDITS,
+    creditCost: TURBO_RUN_CAPTION_BASE_CREDITS,
     description:
-      'Generate a batch of content (images, videos, carousels) for a brand. Specify count, platforms, and date range. Use handle param to resolve @username to a credential. Returns a batch ID for tracking. Credits scale by item format and caption model tier — not a flat fee.',
-    name: 'generate_content_batch',
+      'Generate a Turbo run of content (images, videos, carousels) for a brand. Specify count, platforms, and date range. Use handle param to resolve @username to a credential. Returns a Turbo run ID for tracking. Credits scale by item format and caption model tier — not a flat fee.',
+    name: 'generate_turbo_content',
     parameters: {
       properties: {
         brandId: {

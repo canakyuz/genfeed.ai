@@ -41,10 +41,10 @@ import { AgentDashboardToolHandler } from '@api/services/agent-orchestrator/tool
 import { AgentInstagramInspirationToolHandler } from '@api/services/agent-orchestrator/tools/agent-instagram-inspiration-tool-handler.service';
 import { AgentLivestreamToolHandler } from '@api/services/agent-orchestrator/tools/agent-livestream-tool-handler.service';
 import { AgentMediaAssetGenerationService } from '@api/services/agent-orchestrator/tools/agent-media-asset-generation.service';
-import { AgentMediaBatchGenerationService } from '@api/services/agent-orchestrator/tools/agent-media-batch-generation.service';
 import { AgentMediaGenerationToolHandler } from '@api/services/agent-orchestrator/tools/agent-media-generation-tool-handler.service';
 import { AgentMediaTextGenerationService } from '@api/services/agent-orchestrator/tools/agent-media-text-generation.service';
 import { AgentMediaTransformService } from '@api/services/agent-orchestrator/tools/agent-media-transform.service';
+import { AgentMediaTurboRunService } from '@api/services/agent-orchestrator/tools/agent-media-turbo-run.service';
 import { AgentMemoryGoalsToolHandler } from '@api/services/agent-orchestrator/tools/agent-memory-goals-tool-handler.service';
 import { AgentOnboardingToolHandler } from '@api/services/agent-orchestrator/tools/agent-onboarding-tool-handler.service';
 import { AgentPrepareToolHandler } from '@api/services/agent-orchestrator/tools/agent-prepare-tool-handler.service';
@@ -72,11 +72,11 @@ import {
   ActivitySource,
   AgentGenerationMode,
   ApiKeyScope,
-  BatchItemStatus,
-  BatchStatus,
   IngredientCategory,
   ReleaseStatus,
   TargetExecutionState,
+  TurboRunItemStatus,
+  TurboRunStatus,
 } from '@genfeedai/contracts';
 import type { CreateReleaseGroupInput } from '@genfeedai/contracts/api-types/contracts/scheduler.contract';
 import { SystemWorkflowDispatchClass } from '@genfeedai/contracts/queue';
@@ -524,23 +524,23 @@ describe('AgentToolExecutorService', () => {
       releaseReservation: vi.fn().mockResolvedValue(undefined),
       reserveCredits: vi.fn().mockResolvedValue({ id: 'reservation-1' }),
     };
-    const batchGenerationService = {
+    const turboRunService = {
       approveItems: vi.fn(),
-      createBatch: vi.fn().mockResolvedValue({
-        id: testId('batch'),
+      createTurboRun: vi.fn().mockResolvedValue({
+        id: testId('turboRun'),
         status: 'pending',
         totalCount: 10,
       }),
-      getBatch: vi.fn(),
+      getTurboRun: vi.fn(),
       getReviewInboxSummary: vi.fn(),
-      processBatch: vi.fn().mockResolvedValue(undefined),
+      processTurboRun: vi.fn().mockResolvedValue(undefined),
     };
-    const batchGenerationWorkflowService = {
-      queueBatch: vi.fn().mockResolvedValue('job-1'),
+    const turboRunWorkflowService = {
+      queueTurboRun: vi.fn().mockResolvedValue('job-1'),
     };
-    const batchCreditsService = {
+    const turboRunCreditsService = {
       recordUpfrontCharge: vi.fn().mockResolvedValue(true),
-      settleBatchCredits: vi.fn().mockResolvedValue({ settledCredits: 0 }),
+      settleTurboRunCredits: vi.fn().mockResolvedValue({ settledCredits: 0 }),
     };
     const streamPublisher = {
       publishDone: vi.fn().mockResolvedValue(undefined),
@@ -989,9 +989,7 @@ describe('AgentToolExecutorService', () => {
       { getUsageMetrics: vi.fn() } as never,
       { listLibraryAssets: vi.fn().mockResolvedValue([]) } as never,
     );
-    const reviewHandler = new AgentReviewToolHandler(
-      batchGenerationService as never,
-    );
+    const reviewHandler = new AgentReviewToolHandler(turboRunService as never);
     const adsResearchHandler = new AgentAdsResearchToolHandler(
       adsResearchService as never,
       brandsService as never,
@@ -1023,13 +1021,13 @@ describe('AgentToolExecutorService', () => {
       loggerService,
       postsService as never,
       twitterService as never,
-      batchGenerationService as never,
+      turboRunService as never,
     );
     const xActionsHandler = new AgentXActionsToolHandler(
       loggerService,
       twitterService as never,
       credentialsService as never,
-      batchGenerationService as never,
+      turboRunService as never,
     );
     const onboardingCreditGrantsService = {
       captureOnboardingCompletedBestEffort: vi.fn(),
@@ -1131,15 +1129,15 @@ describe('AgentToolExecutorService', () => {
         textGenerationCredits as never,
       ),
       assetGenerationService,
-      new AgentMediaBatchGenerationService(
+      new AgentMediaTurboRunService(
         loggerService,
         brandsService as never,
         membersService as never,
-        batchGenerationWorkflowService as never,
-        batchGenerationService as never,
+        turboRunWorkflowService as never,
+        turboRunService as never,
         credentialsService as never,
         creditsUtilsService as never,
-        batchCreditsService as never,
+        turboRunCreditsService as never,
       ),
       new AgentMediaTransformService(
         assetGenerationService,
@@ -1161,7 +1159,7 @@ describe('AgentToolExecutorService', () => {
       {} as never,
       {} as never,
       {} as never,
-      batchGenerationService as never,
+      turboRunService as never,
     );
     vi.spyOn(brandContentHandler, 'createBrandFromUrl').mockResolvedValue({
       success: true,
@@ -1283,8 +1281,8 @@ describe('AgentToolExecutorService', () => {
       aiActionsService,
       brandInterviewService,
       analyticsService,
-      batchGenerationService,
-      batchGenerationWorkflowService,
+      turboRunService,
+      turboRunWorkflowService,
       botsLivestreamService,
       botsService,
       brandsService,
@@ -1787,7 +1785,7 @@ describe('AgentToolExecutorService', () => {
     postRepurposeService.repurpose.mockResolvedValue({
       adjustments: [],
       draft: { id: 'repurposed-draft-2' },
-      reviewBatchId: 'batch-1',
+      reviewTurboRunId: 'batch-1',
       reviewItemId: 'item-1',
     });
 
@@ -1807,7 +1805,7 @@ describe('AgentToolExecutorService', () => {
         data: expect.objectContaining({
           id: 'repurposed-draft-2',
           mode: 'agent',
-          reviewBatchId: 'batch-1',
+          reviewTurboRunId: 'batch-1',
           reviewItemId: 'item-1',
         }),
         isBillingDelegated: true,
@@ -4549,9 +4547,9 @@ describe('AgentToolExecutorService', () => {
   });
 
   it('returns a JSON-safe batch approval that passes the workflow output contract', async () => {
-    const { batchGenerationService, service } = createService();
+    const { turboRunService, service } = createService();
     const result = await service.executeTool(
-      'generate_content_batch',
+      'generate_turbo_content',
       { count: 20, platforms: ['instagram', 'twitter', 'linkedin'] },
       {
         hostSupportsApproval: true,
@@ -4566,9 +4564,9 @@ describe('AgentToolExecutorService', () => {
       requiresConfirmation: true,
       success: true,
     });
-    expect(batchGenerationService.createBatch).not.toHaveBeenCalled();
-    const action = getActionDefinition('generate_content_batch');
-    const contract = compileActionContract('generate_content_batch', {
+    expect(turboRunService.createTurboRun).not.toHaveBeenCalled();
+    const action = getActionDefinition('generate_turbo_content');
+    const contract = compileActionContract('generate_turbo_content', {
       inputSchema: action?.inputSchema as ActionContractJsonSchema,
       outputSchema: action?.outputSchema as ActionContractJsonSchema,
     });
@@ -4576,7 +4574,7 @@ describe('AgentToolExecutorService', () => {
       contract.validateOutput(result, {
         nodeId: 'execute-tool',
         runId: 'run-batch',
-        workflowId: 'agent.tool.generate_content_batch',
+        workflowId: 'agent.tool.generate_turbo_content',
         workflowVersionId: 'v1',
       }),
     ).not.toThrow();
@@ -4584,7 +4582,7 @@ describe('AgentToolExecutorService', () => {
   });
 
   it('should use the selected brand when batch generation omits brandId', async () => {
-    const { batchGenerationService, brandsService, executeApprovedTool } =
+    const { turboRunService, brandsService, executeApprovedTool } =
       createService();
 
     brandsService.findOne.mockResolvedValue({
@@ -4597,7 +4595,7 @@ describe('AgentToolExecutorService', () => {
     });
 
     const result = await executeApprovedTool(
-      'generate_content_batch',
+      'generate_turbo_content',
       {
         count: 20,
         platforms: ['instagram', 'twitter', 'linkedin'],
@@ -4610,7 +4608,7 @@ describe('AgentToolExecutorService', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(batchGenerationService.createBatch).toHaveBeenCalledWith(
+    expect(turboRunService.createTurboRun).toHaveBeenCalledWith(
       expect.objectContaining({
         brandId: testId('currentbrand'),
         count: 20,
@@ -4630,8 +4628,8 @@ describe('AgentToolExecutorService', () => {
 
   it('hands an async batch to the workflow queue with its live thread identity', async () => {
     const {
-      batchGenerationService,
-      batchGenerationWorkflowService,
+      turboRunService,
+      turboRunWorkflowService,
       brandsService,
       executeApprovedTool,
     } = createService();
@@ -4647,7 +4645,7 @@ describe('AgentToolExecutorService', () => {
     });
 
     const result = await executeApprovedTool(
-      'generate_content_batch',
+      'generate_turbo_content',
       {
         count: 2,
         platforms: ['instagram'],
@@ -4674,9 +4672,9 @@ describe('AgentToolExecutorService', () => {
     expect(result.success).toBe(true);
     // Generation runs in the batch workflow now — the tool only reserves credits
     // and hands over the identity the workflow streams progress back through.
-    expect(batchGenerationWorkflowService.queueBatch).toHaveBeenCalledWith(
+    expect(turboRunWorkflowService.queueTurboRun).toHaveBeenCalledWith(
       {
-        batchId: testId('batch'),
+        turboRunId: testId('turboRun'),
         organizationId: testId('org'),
         runId: 'run-1',
         threadId: 'thread-1',
@@ -4684,7 +4682,7 @@ describe('AgentToolExecutorService', () => {
       },
       SystemWorkflowDispatchClass.INTERACTIVE,
     );
-    expect(batchGenerationService.processBatch).not.toHaveBeenCalled();
+    expect(turboRunService.processTurboRun).not.toHaveBeenCalled();
   });
 
   it('should return clip_workflow_run_card from prepare_clip_workflow_run', async () => {
@@ -4862,8 +4860,8 @@ describe('AgentToolExecutorService', () => {
   });
 
   it('should sanitize colon-prefixed batch ids for list_review_queue and return a conversation card', async () => {
-    const { batchGenerationService, service } = createService();
-    batchGenerationService.getBatch = vi.fn().mockResolvedValue({
+    const { turboRunService, service } = createService();
+    turboRunService.getTurboRun = vi.fn().mockResolvedValue({
       id: testId('batchreview'),
       items: [
         {
@@ -4871,24 +4869,24 @@ describe('AgentToolExecutorService', () => {
           format: 'image',
           platform: 'instagram',
           reviewDecision: undefined,
-          status: BatchItemStatus.PENDING,
+          status: TurboRunItemStatus.PENDING,
         },
         {
           id: testId('reviewitemapproved'),
           format: 'image',
           platform: 'linkedin',
           reviewDecision: 'approved',
-          status: BatchItemStatus.COMPLETED,
+          status: TurboRunItemStatus.COMPLETED,
         },
       ],
-      status: BatchStatus.PROCESSING,
+      status: TurboRunStatus.PROCESSING,
       totalCount: 2,
     });
 
     const result = await service.executeTool(
       'list_review_queue',
       {
-        batchId: `:${testId('batchreview')}`,
+        turboRunId: `:${testId('batchreview')}`,
         limit: 25,
       },
       {
@@ -4904,7 +4902,7 @@ describe('AgentToolExecutorService', () => {
         expect.objectContaining({ reviewDecision: 'approved' }),
       ],
     });
-    expect(batchGenerationService.getBatch).toHaveBeenCalledWith(
+    expect(turboRunService.getTurboRun).toHaveBeenCalledWith(
       testId('batchreview'),
       testId('org'),
     );
@@ -4916,7 +4914,7 @@ describe('AgentToolExecutorService', () => {
           'LinkedIn · image · approved',
         ],
         primaryCta: {
-          href: `/publishing/posts?view=approvals&batch=${testId('batchreview')}&filter=ready`,
+          href: `/publishing/posts?view=approvals&run=${testId('batchreview')}&filter=ready`,
           label: 'Open reviews',
         },
         status: 'completed',
@@ -4928,17 +4926,17 @@ describe('AgentToolExecutorService', () => {
     ]);
   });
 
-  it('falls back to the review inbox when list_review_queue gets a placeholder batchId', async () => {
-    const { batchGenerationService, service } = createService();
-    batchGenerationService.getBatch = vi.fn();
-    batchGenerationService.getReviewInboxSummary = vi.fn().mockResolvedValue({
+  it('falls back to the review inbox when list_review_queue gets a placeholder turboRunId', async () => {
+    const { turboRunService, service } = createService();
+    turboRunService.getTurboRun = vi.fn();
+    turboRunService.getReviewInboxSummary = vi.fn().mockResolvedValue({
       approvedCount: 0,
       changesRequestedCount: 0,
       pendingCount: 1,
       readyCount: 2,
       recentItems: [
         {
-          batchId: testId('batchreview'),
+          turboRunId: testId('batchreview'),
           createdAt: '2026-08-09T20:00:00.000Z',
           format: 'image',
           id: testId('reviewitem'),
@@ -4954,7 +4952,7 @@ describe('AgentToolExecutorService', () => {
     const result = await service.executeTool(
       'list_review_queue',
       {
-        batchId: 'pending',
+        turboRunId: 'pending',
         limit: 10,
       },
       {
@@ -4966,8 +4964,8 @@ describe('AgentToolExecutorService', () => {
 
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
-    expect(batchGenerationService.getBatch).not.toHaveBeenCalled();
-    expect(batchGenerationService.getReviewInboxSummary).toHaveBeenCalledWith(
+    expect(turboRunService.getTurboRun).not.toHaveBeenCalled();
+    expect(turboRunService.getReviewInboxSummary).toHaveBeenCalledWith(
       testId('org'),
       testId('currentbrand'),
       10,
@@ -4986,13 +4984,13 @@ describe('AgentToolExecutorService', () => {
       type: 'completion_summary_card',
     });
     expect(result.nextActions?.[0]?.summaryText).toContain(
-      'ignored an invalid batch id',
+      'ignored an invalid Turbo run id',
     );
   });
 
-  it('loads the review inbox when list_review_queue is called without a batchId', async () => {
-    const { batchGenerationService, service } = createService();
-    batchGenerationService.getReviewInboxSummary = vi.fn().mockResolvedValue({
+  it('loads the review inbox when list_review_queue is called without a turboRunId', async () => {
+    const { turboRunService, service } = createService();
+    turboRunService.getReviewInboxSummary = vi.fn().mockResolvedValue({
       approvedCount: 0,
       changesRequestedCount: 0,
       pendingCount: 0,
@@ -5011,7 +5009,7 @@ describe('AgentToolExecutorService', () => {
     );
 
     expect(result.success).toBe(true);
-    expect(batchGenerationService.getReviewInboxSummary).toHaveBeenCalledWith(
+    expect(turboRunService.getReviewInboxSummary).toHaveBeenCalledWith(
       testId('org'),
       undefined,
       20,
@@ -5022,13 +5020,13 @@ describe('AgentToolExecutorService', () => {
   });
 
   it('never treats a model tool call as publish approval', async () => {
-    const { batchGenerationService, service } = createService();
+    const { turboRunService, service } = createService();
 
     const result = await service.executeTool(
-      'batch_approve_reject',
+      'review_turbo_items',
       {
         action: 'approve',
-        batchId: testId('batchmodel'),
+        turboRunId: testId('batchmodel'),
         itemIds: [testId('itemmodel')],
       },
       {
@@ -5039,9 +5037,9 @@ describe('AgentToolExecutorService', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('cannot grant publish approval');
-    expect(batchGenerationService.approveItems).not.toHaveBeenCalled();
+    expect(turboRunService.approveItems).not.toHaveBeenCalled();
     expect(result.nextActions?.[0]?.primaryCta).toEqual({
-      href: `/publishing/posts?view=approvals&batch=${testId('batchmodel')}&filter=ready`,
+      href: `/publishing/posts?view=approvals&run=${testId('batchmodel')}&filter=ready`,
       label: 'Review exact versions',
     });
   });
@@ -6225,14 +6223,14 @@ describe('AgentToolExecutorService', () => {
   });
 
   it('rejects stale thread scope before dispatching a tool', async () => {
-    const { agentScopeContextService, batchGenerationService, service } =
+    const { agentScopeContextService, turboRunService, service } =
       createService();
     agentScopeContextService.assertConsequentialBoundary.mockRejectedValue(
       new Error('Agent context is stale.'),
     );
 
     const result = await service.executeTool(
-      'generate_content_batch',
+      'generate_turbo_content',
       { count: 2, platforms: ['instagram'] },
       {
         brandId: 'brand-1',
@@ -6258,7 +6256,7 @@ describe('AgentToolExecutorService', () => {
         success: false,
       }),
     );
-    expect(batchGenerationService.processBatch).not.toHaveBeenCalled();
+    expect(turboRunService.processTurboRun).not.toHaveBeenCalled();
   });
 
   it('should fail rate_content when contentId is missing', async () => {
@@ -6447,11 +6445,11 @@ describe('AgentToolExecutorService', () => {
           brandsService as never,
           undefined, // contentQualityScorerService intentionally absent
         ),
-        new AgentMediaBatchGenerationService(
+        new AgentMediaTurboRunService(
           loggerService,
           brandsService as never,
           membersService as never,
-          { queueBatch: vi.fn().mockResolvedValue('job-1') } as never,
+          { queueTurboRun: vi.fn().mockResolvedValue('job-1') } as never,
           {} as never,
           credentialsService as never,
         ),
@@ -7458,7 +7456,7 @@ describe('capped tool quote boundary', () => {
     expect(
       agentToolCreditEstimate('generate', { type: 'image' }),
     ).toBeUndefined();
-    expect(agentToolCreditEstimate('generate_content_batch', {})).toBe(0);
+    expect(agentToolCreditEstimate('generate_turbo_content', {})).toBe(0);
     expect(
       agentToolCreditEstimate('transform_media', { operation: 'merge' }),
     ).toBe(0);

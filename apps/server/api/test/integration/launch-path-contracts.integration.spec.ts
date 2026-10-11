@@ -64,11 +64,11 @@ describe('launch-path contracts (hermetic E2E tier)', () => {
   });
 
   it('bounds review-inbox bootstrap scans in production source', () => {
-    const source = readSourceOf('BatchGenerationReviewService', {
+    const source = readSourceOf('TurboRunReviewService', {
       root: API_SRC,
     });
-    expect(source).toContain('this.prisma.batchItem.groupBy({');
-    expect(source).toContain('this.prisma.batchItem.findMany({');
+    expect(source).toContain('this.prisma.turboRunItem.groupBy({');
+    expect(source).toContain('this.prisma.turboRunItem.findMany({');
     expect(source).toContain('take: recentLimit');
     expect(source).toContain("by: ['status', 'reviewDecision']");
   });
@@ -194,32 +194,32 @@ describe('launch-path contracts (hermetic E2E tier)', () => {
     expect(brandState).toContain('isBrandsFetched');
   });
 
-  it('rejects invalid batch platforms before content generation (#2696)', () => {
-    const processing = readSourceOf('BatchGenerationProcessingService', {
+  it('rejects invalid Turbo run platforms before content generation (#2696)', () => {
+    const processing = readSourceOf('TurboRunProcessingService', {
       root: API_SRC,
     });
     const generateIdx = processing.indexOf(
       'this.contentGeneratorService.generateContent',
     );
-    const rejectIdx = processing.indexOf('Invalid batch item platform');
+    const rejectIdx = processing.indexOf('Invalid Turbo run item platform');
     expect(generateIdx).toBeGreaterThan(-1);
     expect(rejectIdx).toBeGreaterThan(-1);
     // Parse-and-throw must sit above generateContent so bad items never burn LLM credits.
     expect(rejectIdx).toBeLessThan(generateIdx);
   });
 
-  it('cancels the batch when the agent tool credit reserve fails (#2696)', () => {
-    const source = readSourceOf('AgentMediaBatchGenerationService', {
+  it('cancels the Turbo run when the agent tool credit reserve fails (#2696)', () => {
+    const source = readSourceOf('AgentMediaTurboRunService', {
       root: API_SRC,
     });
     expect(source).toContain('reserveCreditsOrCancel');
-    expect(source).toContain('cancelBatch');
+    expect(source).toContain('cancelTurboRun');
     expect(source).toContain(
-      'failed to cancel batch after credit reserve failure',
+      'failed to cancel Turbo run after credit reserve failure',
     );
     expect(source).toContain('this.creditsUtilsService.reserveCredits');
     expect(source).toContain(
-      `idempotencyKey: \`batch-generation:\${params.batchId}\``,
+      `idempotencyKey: \`turbo-run:\${params.turboRunId}\``,
     );
   });
 

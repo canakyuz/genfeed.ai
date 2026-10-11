@@ -9,12 +9,12 @@ import {
   SystemWorkflowRunnerService,
 } from '@api/collections/workflows/system-workflow-runner.service';
 import { AgentChatModelRegistryService } from '@api/services/agent-orchestrator/agent-chat-model-registry.service';
-import { AgentOrchestratorBatchService } from '@api/services/agent-orchestrator/agent-orchestrator-batch.service';
 import { AgentOrchestratorContextService } from '@api/services/agent-orchestrator/agent-orchestrator-context.service';
 import { AgentOrchestratorPlanModeService } from '@api/services/agent-orchestrator/agent-orchestrator-plan-mode.service';
 import { AgentOrchestratorRecurringTaskService } from '@api/services/agent-orchestrator/agent-orchestrator-recurring-task.service';
 import { AgentOrchestratorStreamLoopService } from '@api/services/agent-orchestrator/agent-orchestrator-stream-loop.service';
 import { AgentOrchestratorSyncLoopService } from '@api/services/agent-orchestrator/agent-orchestrator-sync-loop.service';
+import { AgentOrchestratorTurboRunService } from '@api/services/agent-orchestrator/agent-orchestrator-turbo-run.service';
 import { AgentOrchestratorUiActionService } from '@api/services/agent-orchestrator/agent-orchestrator-ui-action.service';
 import { AgentStreamEffectsService } from '@api/services/agent-orchestrator/agent-stream-effects.service';
 import { AgentThreadEventRecorderService } from '@api/services/agent-orchestrator/agent-thread-event-recorder.service';
@@ -98,7 +98,7 @@ export class AgentTurnWorkflowExecutionService implements OnModuleInit {
     private readonly agentChatModelRegistry: AgentChatModelRegistryService,
     private readonly contextService: AgentOrchestratorContextService,
     private readonly planModeService: AgentOrchestratorPlanModeService,
-    private readonly batchService: AgentOrchestratorBatchService,
+    private readonly turboRunService: AgentOrchestratorTurboRunService,
     private readonly recurringTaskService: AgentOrchestratorRecurringTaskService,
     private readonly streamLoopService: AgentOrchestratorStreamLoopService,
     private readonly syncLoopService: AgentOrchestratorSyncLoopService,
@@ -359,7 +359,7 @@ export class AgentTurnWorkflowExecutionService implements OnModuleInit {
     const handledDeterministically =
       request.source !== 'proactive' &&
       request.creditBudget === undefined &&
-      ((await this.batchService.tryHandleBatchGenerationTurnStream(
+      ((await this.turboRunService.tryHandleTurboRunTurnStream(
         {
           context,
           model,
@@ -406,11 +406,11 @@ export class AgentTurnWorkflowExecutionService implements OnModuleInit {
     if (
       state.request.source !== 'proactive' ||
       !state.strategyId ||
-      !this.batchService.tryExecuteCadence
+      !this.turboRunService.tryExecuteCadence
     )
       return null;
     return this.executionLaneService.runExclusive(state.threadId, () =>
-      this.batchService.tryExecuteCadence(state),
+      this.turboRunService.tryExecuteCadence(state),
     );
   }
 

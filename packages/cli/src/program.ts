@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { authCommand } from '@/commands/auth';
 import { balanceCommand } from '@/commands/balance';
-import { batchCommand } from '@/commands/batch';
 import { brandsCommand } from '@/commands/brands';
 import { chatCommand } from '@/commands/chat';
 import { configCommand } from '@/commands/config';
@@ -26,6 +25,7 @@ import { statusCommand } from '@/commands/status';
 import { templateCommand } from '@/commands/template';
 import { threadsCommand } from '@/commands/threads';
 import { toolsCommand } from '@/commands/tools';
+import { turboCommand } from '@/commands/turbo';
 import { whoamiCommand } from '@/commands/whoami';
 import { workflowCommand } from '@/commands/workflow';
 
@@ -69,7 +69,7 @@ export function createProgram(): Command {
     .addCommand(publishCommand)
     .addCommand(libraryCommand)
     .addCommand(profileCommand)
-    .addCommand(batchCommand)
+    .addCommand(turboCommand)
     .addCommand(templateCommand)
     .addCommand(insightsCommand)
     .addCommand(scheduleCommand)

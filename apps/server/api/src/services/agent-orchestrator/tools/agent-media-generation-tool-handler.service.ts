@@ -1,7 +1,7 @@
 import { AgentMediaAssetGenerationService } from '@api/services/agent-orchestrator/tools/agent-media-asset-generation.service';
-import { AgentMediaBatchGenerationService } from '@api/services/agent-orchestrator/tools/agent-media-batch-generation.service';
 import { AgentMediaTextGenerationService } from '@api/services/agent-orchestrator/tools/agent-media-text-generation.service';
 import { AgentMediaTransformService } from '@api/services/agent-orchestrator/tools/agent-media-transform.service';
+import { AgentMediaTurboRunService } from '@api/services/agent-orchestrator/tools/agent-media-turbo-run.service';
 import type { ToolExecutionContext } from '@api/services/agent-orchestrator/tools/agent-tool-executor.service';
 import {
   findInapplicableMediaGenerationParameters,
@@ -35,7 +35,7 @@ export class AgentMediaGenerationToolHandler {
   constructor(
     private readonly textGeneration: AgentMediaTextGenerationService,
     private readonly assetGeneration: AgentMediaAssetGenerationService,
-    private readonly batchGeneration: AgentMediaBatchGenerationService,
+    private readonly turboRun: AgentMediaTurboRunService,
     private readonly transform: AgentMediaTransformService,
   ) {}
 
@@ -127,11 +127,11 @@ export class AgentMediaGenerationToolHandler {
     return this.transform.transformMedia(params, ctx);
   }
 
-  async generateContentBatch(
+  async generateTurboContent(
     params: Record<string, unknown>,
     ctx: ToolExecutionContext,
   ): Promise<AgentToolResult> {
-    return this.batchGeneration.generateContentBatch(params, ctx);
+    return this.turboRun.generateTurboContent(params, ctx);
   }
 
   async generateAsIdentity(

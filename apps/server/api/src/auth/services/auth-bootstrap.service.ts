@@ -16,12 +16,12 @@ import {
   getStripeSubscriptionStatus,
   getSubscriptionTier,
 } from '@api/helpers/utils/auth/auth.util';
-import {
-  BatchGenerationService,
-  ReviewInboxSummary,
-} from '@api/services/batch-generation/batch-generation.service';
 import { LowCreditThresholdService } from '@api/services/low-credit-threshold/low-credit-threshold.service';
 import { DefaultGenerationAffordabilityService } from '@api/services/router/default-generation-affordability.service';
+import {
+  ReviewInboxSummary,
+  TurboRunService,
+} from '@api/services/turbo-run/turbo-run.service';
 import { PopulateBuilder } from '@api/shared/utils/populate/populate.util';
 import { isCloudDeployment } from '@genfeedai/config';
 import { MemberRole } from '@genfeedai/contracts';
@@ -72,7 +72,7 @@ export class AuthBootstrapService {
     private readonly accessBootstrapCacheService: AccessBootstrapCacheService,
     private readonly brandsService: BrandsService,
     private readonly creditsUtilsService: CreditsUtilsService,
-    private readonly batchGenerationService: BatchGenerationService,
+    private readonly turboRunService: TurboRunService,
     private readonly membersService: MembersService,
     private readonly organizationSettingsService: OrganizationSettingsService,
     private readonly streaksService: StreaksService,
@@ -471,7 +471,7 @@ export class AuthBootstrapService {
       return cached;
     }
 
-    const reviewInbox = await this.batchGenerationService.getReviewInboxSummary(
+    const reviewInbox = await this.turboRunService.getReviewInboxSummary(
       organizationId,
       brandId || undefined,
       5,

@@ -365,7 +365,7 @@ export default function ReleasePostsList({
       storeView(nextMode);
       replaceSearchParams((params) => {
         // Approval queue state does not apply to the other Posts views.
-        params.delete('batch');
+        params.delete('run');
         params.delete('filter');
         params.delete('item');
         if (nextMode === 'list') {

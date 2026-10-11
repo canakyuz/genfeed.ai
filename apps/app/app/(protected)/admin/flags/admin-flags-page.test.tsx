@@ -154,8 +154,8 @@ describe('AdminFlagsPage (#5468)', () => {
       'Motion',
       'Storyboard',
       'Clips',
-      'Batch',
-      'Batch ideas',
+      'Turbo',
+      'Turbo ideas',
       'Editor',
     ]) {
       expect(screen.getByRole('switch', { name }).closest(CARD)).toBe(
@@ -171,15 +171,15 @@ describe('AdminFlagsPage (#5468)', () => {
   });
 
   it('names the switched-off flag that keeps a nested row off', async () => {
-    mocks.getSettings.mockResolvedValue({ flags: { studio_batch: false } });
+    mocks.getSettings.mockResolvedValue({ flags: { studio_turbo: false } });
     render(<AdminFlagsPage />);
 
-    const batchIdeas = await screen.findByRole('switch', {
-      name: 'Batch ideas',
+    const turboIdeas = await screen.findByRole('switch', {
+      name: 'Turbo ideas',
     });
-    expect(batchIdeas).toBeDisabled();
-    expect(batchIdeas.getAttribute('aria-description')).toContain(
-      'Needs Batch. Off while Batch is off.',
+    expect(turboIdeas).toBeDisabled();
+    expect(turboIdeas.getAttribute('aria-description')).toContain(
+      'Needs Turbo. Off while Turbo is off.',
     );
     expect(screen.getByRole('switch', { name: 'Motion' })).toBeEnabled();
   });
@@ -187,7 +187,7 @@ describe('AdminFlagsPage (#5468)', () => {
   it('lists every Studio surface as its own switch', async () => {
     render(<AdminFlagsPage />);
 
-    for (const name of ['Motion', 'Storyboard', 'Clips', 'Batch', 'Editor']) {
+    for (const name of ['Motion', 'Storyboard', 'Clips', 'Turbo', 'Editor']) {
       expect(await screen.findByRole('switch', { name })).toBeInTheDocument();
     }
   });
@@ -204,7 +204,7 @@ describe('AdminFlagsPage (#5468)', () => {
     expect(motion.getAttribute('aria-description')).toContain(
       'Off while Studio is off.',
     );
-    expect(screen.getByRole('switch', { name: 'Batch ideas' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Turbo ideas' })).toBeDisabled();
     expect(screen.getByRole('switch', { name: 'Agent' })).toBeEnabled();
   });
 

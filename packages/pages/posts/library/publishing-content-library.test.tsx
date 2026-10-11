@@ -383,7 +383,7 @@ describe('PublishingContentLibrary', () => {
   });
 
   it('renders the approval queue as a Posts view that owns the toolbar', () => {
-    mocks.search = 'view=approvals&batch=batch-1&item=item-9';
+    mocks.search = 'view=approvals&run=batch-1&item=item-9';
     mocks.setFiltersNode.mockClear();
     mocks.setLeadingNode.mockClear();
 
@@ -405,7 +405,7 @@ describe('PublishingContentLibrary', () => {
       screen.getByRole('radio', { name: 'viewToggle.approvals' }),
     ).toBeChecked();
     fireEvent.click(screen.getByRole('radio', { name: 'List' }));
-    // Leaving approvals drops the queue's batch and item selection.
+    // Leaving approvals drops the queue's Turbo run and item selection.
     expect(mocks.replace.mock.calls.at(-1)?.[0]).toBe(
       '/acme/main/publishing/posts?view=list',
     );

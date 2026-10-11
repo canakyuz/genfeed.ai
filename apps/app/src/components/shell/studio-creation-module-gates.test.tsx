@@ -1,6 +1,6 @@
-import BatchNewPage from '@app/(protected)/[orgSlug]/[brandSlug]/studio/batch/new/page';
 import ClipsNewPage from '@app/(protected)/[orgSlug]/[brandSlug]/studio/clips/new/page';
 import EditorNewPage from '@app/(protected)/[orgSlug]/[brandSlug]/studio/editor/new/page';
+import TurboNewPage from '@app/(protected)/[orgSlug]/[brandSlug]/studio/turbo/new/page';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,7 +25,7 @@ vi.mock('next-intl', async () => {
   const { translateFromCatalog } = await import('@app-tests/next-intl.stub');
   return { useTranslations: translateFromCatalog };
 });
-vi.mock('@/features/workflows/pages/batch/BatchNewProjectPage', () => ({
+vi.mock('@/features/workflows/pages/turbo/TurboNewProjectPage', () => ({
   default: () => (
     <button type="button" onClick={state.create}>
       Create project
@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 describe('Studio creation routes', () => {
   it.each([
-    ['batch', BatchNewPage],
+    ['turbo', TurboNewPage],
     ['clips', ClipsNewPage],
     ['editor', EditorNewPage],
   ] as const)(

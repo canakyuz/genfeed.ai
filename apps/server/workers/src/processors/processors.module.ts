@@ -39,8 +39,6 @@ import { AgentCampaignOrchestratorModule } from '@api/services/agent-campaign/ag
 import { AgentOrchestratorModule } from '@api/services/agent-orchestrator/agent-orchestrator.module';
 import { AgentStreamPublisherModule } from '@api/services/agent-orchestrator/agent-stream-publisher.module';
 import { AiInfluencerModule } from '@api/services/ai-influencer/ai-influencer.module';
-import { BatchContentModule } from '@api/services/batch-content/batch-content.module';
-import { BatchGenerationModule } from '@api/services/batch-generation/batch-generation.module';
 import { CampaignModule } from '@api/services/campaign/campaign.module';
 import { ContentOptimizationModule } from '@api/services/content-optimization/content-optimization.module';
 import { ContentOrchestrationModule } from '@api/services/content-orchestration/content-orchestration.module';
@@ -58,6 +56,8 @@ import { ReplyBotModule } from '@api/services/reply-bot/reply-bot.module';
 import { SignupPrefillModule } from '@api/services/signup-prefill/signup-prefill.module';
 import { SkillWorkflowModule } from '@api/services/skill-executor/skill-executor.module';
 import { TaskOrchestrationModule } from '@api/services/task-orchestration/task-orchestration.module';
+import { TurboContentModule } from '@api/services/turbo-content/turbo-content.module';
+import { TurboRunModule } from '@api/services/turbo-run/turbo-run.module';
 import { WebhookClientModule } from '@api/services/webhook-client/webhook-client.module';
 import { WhisperModule } from '@api/services/whisper/whisper.module';
 import { ConfigModule } from '@libs/config/config.module';
@@ -71,8 +71,6 @@ import { BackgroundSystemWorkflowProcessor } from '@workers/processors/api/colle
 import { PlatformSystemWorkflowProcessor } from '@workers/processors/api/collections/workflows/services/platform-system-workflow.processor';
 import { ScheduledPublishWorkflowProcessor } from '@workers/processors/api/collections/workflows/services/scheduled-publish-workflow.processor';
 import { WorkflowExecutionProcessor as CollectionsWorkflowExecutionProcessor } from '@workers/processors/api/collections/workflows/services/workflow-execution.processor';
-// --- queues/ processors ---
-import { BatchRewriteProcessor } from '@workers/processors/api/queues/batch-rewrite/batch-rewrite.processor';
 import { CreditDeductionProcessor } from '@workers/processors/api/queues/credit-deduction/credit-deduction.processor';
 import { HeygenPollProcessor } from '@workers/processors/api/queues/heygen-poll/heygen-poll.processor';
 import { MediaDeliveryProcessor } from '@workers/processors/api/queues/media-delivery.processor';
@@ -82,6 +80,8 @@ import { NotificationDeliveryProcessor } from '@workers/processors/api/queues/no
 import { NotificationDeliveryRecoveryModule } from '@workers/processors/api/queues/notification-delivery/notification-delivery-recovery.module';
 import { OnboardingStarterAssetsProcessor } from '@workers/processors/api/queues/onboarding-starter-assets/onboarding-starter-assets.processor';
 import { ReplicatePollProcessor } from '@workers/processors/api/queues/replicate-poll/replicate-poll.processor';
+// --- queues/ processors ---
+import { TurboRewriteProcessor } from '@workers/processors/api/queues/turbo-rewrite/turbo-rewrite.processor';
 // --- services/ processors ---
 import { WebhookClientProcessor } from '@workers/processors/api/services/webhook-client/webhook-client.processor';
 import { WorkersQueuesModule } from '@workers/queues/queues.module';
@@ -129,8 +129,8 @@ import { SocialIntegrationsModule } from '@workers/services/social-integrations.
     forwardRef(() => AgentOrchestratorModule),
     AgentStreamPublisherModule,
     forwardRef(() => AiInfluencerModule),
-    forwardRef(() => BatchContentModule),
-    forwardRef(() => BatchGenerationModule),
+    forwardRef(() => TurboContentModule),
+    forwardRef(() => TurboRunModule),
     forwardRef(() => CampaignModule),
     forwardRef(() => ContentOptimizationModule),
     forwardRef(() => ContentOrchestrationModule),
@@ -155,7 +155,7 @@ import { SocialIntegrationsModule } from '@workers/services/social-integrations.
   ],
   providers: [
     // --- queues/ processors ---
-    BatchRewriteProcessor,
+    TurboRewriteProcessor,
     CreditDeductionProcessor,
     LlmCostSettlementProcessor,
     HeygenPollProcessor,

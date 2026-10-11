@@ -3,22 +3,22 @@ import { type AgentUiAction } from '@genfeedai/contracts/interfaces';
 
 /**
  * Normalize empty/partial assistant content into a user-facing final string,
- * including batch-result card cleanup and voice-clone fallbacks.
+ * including Turbo run result card cleanup and voice-clone fallbacks.
  */
 export function normalizeFinalAssistantContent(
   content: string,
   toolCalls: ToolCallSummary[],
   uiActions: AgentUiAction[],
 ): { content: string; isFallback: boolean } {
-  const hasBatchGenerationResultCard = uiActions.some(
-    (action) => action.type === 'batch_generation_result_card',
+  const hasTurboRunResultCard = uiActions.some(
+    (action) => action.type === 'turbo_run_result_card',
   );
 
   if (content.trim().length > 0) {
-    if (hasBatchGenerationResultCard) {
-      const normalizedBatchContent = content
-        .replace(/^\s*Batch Details:\s*$/gim, '')
-        .replace(/^\s*Batch ID:.*$/gim, '')
+    if (hasTurboRunResultCard) {
+      const normalizedTurboContent = content
+        .replace(/^\s*Turbo(?: run)? Details:\s*$/gim, '')
+        .replace(/^\s*Turbo(?: run)? ID:.*$/gim, '')
         .replace(/^\s*Status:.*$/gim, '')
         .replace(/^\s*Credits used:.*$/gim, '')
         .replace(/\n{3,}/g, '\n\n')
@@ -26,9 +26,9 @@ export function normalizeFinalAssistantContent(
 
       return {
         content:
-          normalizedBatchContent.length > 0
-            ? normalizedBatchContent
-            : 'Your batch is in motion. The latest status is below.',
+          normalizedTurboContent.length > 0
+            ? normalizedTurboContent
+            : 'Your Turbo run is in motion. The latest status is below.',
         isFallback: false,
       };
     }

@@ -85,7 +85,7 @@ describe('OrganizationModuleAccessService', () => {
 
   it('blocks default-off Batch without consulting balances or paid grants', async () => {
     const { service, prisma, paidAccess } = createService();
-    await expect(service.assertAccess('org-1', 'batch')).rejects.toMatchObject({
+    await expect(service.assertAccess('org-1', 'turbo')).rejects.toMatchObject({
       status: 403,
     });
     expect(prisma.organization.findFirst).toHaveBeenCalledWith({
@@ -141,9 +141,9 @@ describe('OrganizationModuleAccessService', () => {
     ).resolves.toBeUndefined();
   });
   it('allows an explicitly enabled credit-based module without a subscription', async () => {
-    const { service, paidAccess } = createService({ batch: true });
+    const { service, paidAccess } = createService({ turbo: true });
     await expect(
-      service.assertAccess('org-1', 'batch'),
+      service.assertAccess('org-1', 'turbo'),
     ).resolves.toBeUndefined();
     expect(paidAccess.isSubscriptionGatedFresh).not.toHaveBeenCalled();
   });
@@ -159,31 +159,31 @@ describe('OrganizationModuleAccessService', () => {
     expect(paidAccess.isSubscriptionGatedFresh).toHaveBeenCalledTimes(2);
   });
   it('reads current module preferences for each admission, including after disabling a warm module', async () => {
-    const { service, prisma } = createService({ batch: true });
-    await service.assertAccess('org-1', 'batch');
+    const { service, prisma } = createService({ turbo: true });
+    await service.assertAccess('org-1', 'turbo');
     prisma.organizationSetting.findUnique.mockResolvedValueOnce({
-      moduleOverrides: { batch: false },
+      moduleOverrides: { turbo: false },
     });
-    await expect(service.assertAccess('org-1', 'batch')).rejects.toMatchObject({
+    await expect(service.assertAccess('org-1', 'turbo')).rejects.toMatchObject({
       status: 403,
     });
     expect(prisma.organizationSetting.findUnique).toHaveBeenCalledTimes(2);
   });
   it('fails closed for missing/deleted organizations and missing settings', async () => {
-    const { service, prisma } = createService({ batch: true });
+    const { service, prisma } = createService({ turbo: true });
     prisma.organization.findFirst.mockResolvedValueOnce(null);
-    await expect(service.assertAccess('org-1', 'batch')).rejects.toMatchObject({
+    await expect(service.assertAccess('org-1', 'turbo')).rejects.toMatchObject({
       status: 503,
     });
     expect(prisma.organizationSetting.findUnique).not.toHaveBeenCalled();
     prisma.organizationSetting.findUnique.mockResolvedValueOnce(null);
-    await expect(service.assertAccess('org-1', 'batch')).rejects.toMatchObject({
+    await expect(service.assertAccess('org-1', 'turbo')).rejects.toMatchObject({
       status: 503,
     });
   });
   it('fails closed on policy corruption, DB failures and entitlement uncertainty', async () => {
     const { service, prisma, paidAccess } = createService({ batch: 'true' });
-    await expect(service.assertAccess('org-1', 'batch')).rejects.toMatchObject({
+    await expect(service.assertAccess('org-1', 'turbo')).rejects.toMatchObject({
       status: 503,
     });
     prisma.organization.findFirst.mockRejectedValueOnce(

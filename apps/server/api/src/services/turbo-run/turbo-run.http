@@ -1,0 +1,119 @@
+### Genfeed API - Turbo Run Endpoints
+### Manage Turbo run jobs: create, list, process, approve/reject, cancel
+### Protected by RolesGuard + SubscriptionGuard
+
+########################################
+# Create & List Turbo runs
+########################################
+
+### Create Turbo Run Job
+POST {{apiBaseUrl}}/turbo-runs
+Authorization: Bearer {{bearerToken}}
+Content-Type: application/json
+
+{
+  "type": "image_generation",
+  "items": [
+    {
+      "prompt": "Professional product photo on white background",
+      "model": "flux-1.1-pro",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "prompt": "Lifestyle product shot in a modern kitchen",
+      "model": "flux-1.1-pro",
+      "width": 1024,
+      "height": 1024
+    }
+  ],
+  "config": {
+    "autoProcess": false
+  }
+}
+
+
+### List All Turbo runs
+GET {{apiBaseUrl}}/turbo-runs
+Authorization: Bearer {{bearerToken}}
+
+
+### List Turbo runs with Filters
+GET {{apiBaseUrl}}/turbo-runs?status=pending&limit=20&offset=0
+Authorization: Bearer {{bearerToken}}
+
+
+### List Completed Turbo runs
+GET {{apiBaseUrl}}/turbo-runs?status=completed
+Authorization: Bearer {{bearerToken}}
+
+
+########################################
+# Single Turbo run Operations
+########################################
+
+### Get Turbo run by ID
+GET {{apiBaseUrl}}/turbo-runs/{{testTurboRunId}}
+Authorization: Bearer {{bearerToken}}
+
+
+### Process Turbo run
+# Triggers processing of all pending items in the Turbo run
+POST {{apiBaseUrl}}/turbo-runs/{{testTurboRunId}}/process
+Authorization: Bearer {{bearerToken}}
+
+
+### Approve/Reject Turbo run Items
+POST {{apiBaseUrl}}/turbo-runs/{{testTurboRunId}}/items/action
+Authorization: Bearer {{bearerToken}}
+Content-Type: application/json
+
+{
+  "action": "approve",
+  "itemIds": ["{{testTurboRunItemId1}}", "{{testTurboRunItemId2}}"]
+}
+
+
+### Reject Turbo run Items
+POST {{apiBaseUrl}}/turbo-runs/{{testTurboRunId}}/items/action
+Authorization: Bearer {{bearerToken}}
+Content-Type: application/json
+
+{
+  "action": "reject",
+  "itemIds": ["{{testTurboRunItemId1}}"]
+}
+
+
+### Cancel Turbo run
+POST {{apiBaseUrl}}/turbo-runs/{{testTurboRunId}}/cancel
+Authorization: Bearer {{bearerToken}}
+
+
+########################################
+# Test Cases
+########################################
+
+### Test: Turbo run Not Found
+GET {{apiBaseUrl}}/turbo-runs/507f1f77bcf86cd799439011
+Authorization: Bearer {{bearerToken}}
+
+
+### Test: Create Turbo run Without Items
+POST {{apiBaseUrl}}/turbo-runs
+Authorization: Bearer {{bearerToken}}
+Content-Type: application/json
+
+{
+  "type": "image_generation",
+  "items": []
+}
+
+
+### Test: Process Non-Existent Turbo run
+POST {{apiBaseUrl}}/turbo-runs/507f1f77bcf86cd799439011/process
+Authorization: Bearer {{bearerToken}}
+
+
+### Test: Unauthorized Access
+GET {{apiBaseUrl}}/turbo-runs

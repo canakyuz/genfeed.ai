@@ -8,7 +8,7 @@ export const GOLDEN_CONTENT_KINDS = [
 ] as const;
 
 export const GOLDEN_LABEL_SOURCES = [
-  'batch-item-review',
+  'turbo-run-item-review',
   'evaluation-decision',
   'evaluation-score',
   'harness-avoid',
@@ -39,6 +39,8 @@ export const SYNTHETIC_ANONYMISER_KEY =
 export const HARNESS_PROFILE_TYPE = 'harness';
 export const WINNERS_CONTEXT_PURPOSE = 'harness-performance-winners';
 export const READER_PAGE_SIZE = 500;
+/** Avoid-source key prefix for a Turbo run item reference. */
+export const TURBO_RUN_ITEM_SOURCE_PREFIX = 'turbo_run_item:';
 
 export const EXCLUSION_REASONS = [
   'conflict',

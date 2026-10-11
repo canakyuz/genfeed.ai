@@ -9,8 +9,8 @@ import {
 import { isRecord } from '@genfeedai/utils/data/extract.util';
 import { CONTENT_EVAL_THRESHOLDS } from '../../../../../scripts/content-eval/contracts';
 import type { ScoreBand } from '../../../../../scripts/content-eval/rows';
+import { TURBO_RUN_ITEM_SOURCE_PREFIX } from './golden-set.constants';
 import type {
-  GoldenBatchItemRecord,
   GoldenCandidate,
   GoldenContentKind,
   GoldenContextEntryRecord,
@@ -23,6 +23,7 @@ import type {
   GoldenProfileRecord,
   GoldenSetExcluded,
   GoldenSetScopeSnapshot,
+  GoldenTurboRunItemRecord,
 } from './golden-set.types';
 
 function record(value: unknown): Record<string, unknown> {
@@ -120,8 +121,8 @@ export function resolvePostKind(
     return 'social-post';
   return null;
 }
-export function resolveBatchItemKind(
-  item: GoldenBatchItemRecord,
+export function resolveTurboRunItemKind(
+  item: GoldenTurboRunItemRecord,
 ): GoldenContentKind | null {
   const data = record(item.data);
   if (data.type === 'engagement') return null;
@@ -147,11 +148,11 @@ export function extractPostLabels(post: GoldenPostRecord): GoldenLabel[] {
     post.id,
   );
 }
-export function extractBatchItemLabels(
-  item: GoldenBatchItemRecord,
+export function extractTurboRunItemLabels(
+  item: GoldenTurboRunItemRecord,
 ): GoldenLabel[] {
   return reviewLabels(
-    'batch-item-review',
+    'turbo-run-item-review',
     item.reviewDecision,
     record(item.data).reviewEvents,
     item.createdAt,
@@ -288,8 +289,8 @@ export function collectCandidates(snapshot: GoldenSetScopeSnapshot) {
   const posts = new Map(
     [...snapshot.linkedPosts, ...snapshot.posts].map((post) => [post.id, post]),
   );
-  const batches = new Map(
-    [...snapshot.linkedBatchItems, ...snapshot.batchItems].map((item) => [
+  const turboRuns = new Map(
+    [...snapshot.linkedTurboRunItems, ...snapshot.turboRunItems].map((item) => [
       item.id,
       item,
     ]),
@@ -371,15 +372,15 @@ export function collectCandidates(snapshot: GoldenSetScopeSnapshot) {
       labels,
     );
   }
-  function addBatch(
-    item: GoldenBatchItemRecord,
+  function addTurboRun(
+    item: GoldenTurboRunItemRecord,
     labels: GoldenLabel[],
     fallbackBrand: string | null = null,
   ) {
     const data = record(item.data);
     add(
-      `batch_item:${item.id}`,
-      resolveBatchItemKind(item),
+      `${TURBO_RUN_ITEM_SOURCE_PREFIX}${item.id}`,
+      resolveTurboRunItemKind(item),
       item.brandId ?? fallbackBrand,
       string(data.caption) ?? '',
       null,
@@ -406,13 +407,13 @@ export function collectCandidates(snapshot: GoldenSetScopeSnapshot) {
     return decision(value) !== null;
   }
   for (const post of snapshot.posts) addPost(post, extractPostLabels(post));
-  for (const item of snapshot.batchItems) {
+  for (const item of snapshot.turboRunItems) {
     const post = posts.get(string(record(item.data).postId) ?? '');
     if (post && isReviewed(post.reviewDecision)) {
       excluded.copyOfReview++;
       continue;
     }
-    addBatch(item, extractBatchItemLabels(item));
+    addTurboRun(item, extractTurboRunItemLabels(item));
   }
   for (const item of snapshot.newsletters)
     addNewsletter(item, extractNewsletterLabels(item));
@@ -475,8 +476,8 @@ export function collectCandidates(snapshot: GoldenSetScopeSnapshot) {
       const post = source.startsWith('post:')
         ? posts.get(source.slice(5))
         : undefined;
-      const item = source.startsWith('batch_item:')
-        ? batches.get(source.slice(11))
+      const item = source.startsWith(TURBO_RUN_ITEM_SOURCE_PREFIX)
+        ? turboRuns.get(source.slice(TURBO_RUN_ITEM_SOURCE_PREFIX.length))
         : undefined;
       const newsletter = source.startsWith('newsletter:')
         ? newsletters.get(source.slice(11))
@@ -489,7 +490,7 @@ export function collectCandidates(snapshot: GoldenSetScopeSnapshot) {
         continue;
       }
       if (post) addPost(post, labels, brandId);
-      else if (item) addBatch(item, labels, brandId);
+      else if (item) addTurboRun(item, labels, brandId);
       else if (newsletter) addNewsletter(newsletter, labels, brandId);
       else
         add(

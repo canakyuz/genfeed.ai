@@ -24,9 +24,10 @@ export const PLATFORM_SCHEDULED_TASKS = {
   CONTENT_LEARNING_RECONCILE: 'content-learning-reconcile',
   CONTENT_LEARNING_RETENTION: 'content-learning-retention',
   CONTENT_LOOP_AUTOPILOT: 'content-loop-autopilot',
-  BATCH_CREDIT_SETTLEMENT_RECONCILE: 'batch-credit-settlement-reconcile',
-  BATCH_GENERATION_RECONCILE: 'batch-generation-reconcile',
-  BATCH_PROJECT_RECONCILE: 'batch-project-reconcile',
+  TURBO_RUN_CREDIT_SETTLEMENT_RECONCILE:
+    'turbo-run-credit-settlement-reconcile',
+  TURBO_RUN_RECONCILE: 'turbo-run-reconcile',
+  TURBO_PROJECT_RECONCILE: 'turbo-project-reconcile',
   CREDENTIAL_TOKEN_REFRESH: 'credential-token-refresh',
   CRUN_TASK_RECONCILE: 'crun-task-reconcile',
   CRUN_CONTRACT_SYNC: 'crun-contract-sync',
@@ -106,15 +107,15 @@ export const PLATFORM_SCHEDULE_CATALOG = {
     pattern: '*/5 * * * *',
     timezone: 'UTC',
   },
-  [PLATFORM_SCHEDULED_TASKS.BATCH_CREDIT_SETTLEMENT_RECONCILE]: {
+  [PLATFORM_SCHEDULED_TASKS.TURBO_RUN_CREDIT_SETTLEMENT_RECONCILE]: {
     pattern: '*/5 * * * *',
     timezone: 'UTC',
   },
-  [PLATFORM_SCHEDULED_TASKS.BATCH_GENERATION_RECONCILE]: {
+  [PLATFORM_SCHEDULED_TASKS.TURBO_RUN_RECONCILE]: {
     pattern: '*/5 * * * *',
     timezone: 'UTC',
   },
-  [PLATFORM_SCHEDULED_TASKS.BATCH_PROJECT_RECONCILE]: {
+  [PLATFORM_SCHEDULED_TASKS.TURBO_PROJECT_RECONCILE]: {
     pattern: '* * * * *',
     timezone: 'UTC',
   },

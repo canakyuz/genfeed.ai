@@ -121,7 +121,7 @@ const REVIEW_CLAIMED = {
 const REVIEW_HANDOFF = {
   ...REVIEW_CLAIMED,
   completed: state({
-    batchId: STRING_SCHEMA,
+    turboRunId: STRING_SCHEMA,
     postIds: arraySchema(STRING_SCHEMA),
     workflowExecutionId: STRING_SCHEMA,
     workflowId: STRING_SCHEMA,

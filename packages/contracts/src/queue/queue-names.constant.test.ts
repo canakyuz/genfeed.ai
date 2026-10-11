@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   AGENT_TURN_QUEUE,
   ALL_QUEUE_NAMES,
-  BATCH_REWRITE_QUEUE,
   CREDIT_DEDUCTION_QUEUE,
   DEFAULT_QUEUE,
   HEYGEN_POLL_QUEUE,
@@ -12,6 +11,7 @@ import {
   PLATFORM_SYSTEM_WORKFLOW_QUEUE,
   REPLICATE_POLL_QUEUE,
   SCHEDULED_PUBLISH_QUEUE,
+  TURBO_REWRITE_QUEUE,
   WORKFLOW_BACKGROUND_QUEUE,
   WORKFLOW_EXECUTION_QUEUE,
 } from './queue-names.constant';
@@ -32,7 +32,7 @@ describe('queue-names.constant', () => {
     expect(SCHEDULED_PUBLISH_QUEUE).toBe('scheduled-publish');
     expect(MEDIA_PERCEPTION_QUEUE).toBe('media-perception');
     expect(MEDIA_MODERATION_QUEUE).toBe('media-moderation');
-    expect(BATCH_REWRITE_QUEUE).toBe('batch-rewrite');
+    expect(TURBO_REWRITE_QUEUE).toBe('turbo-rewrite');
   });
 
   it('lists every queue exactly once', () => {

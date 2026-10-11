@@ -2,6 +2,7 @@ import { isRecord } from '@genfeedai/utils/data/extract.util';
 import {
   HARNESS_PROFILE_TYPE,
   READER_PAGE_SIZE,
+  TURBO_RUN_ITEM_SOURCE_PREFIX,
   WINNERS_CONTEXT_PURPOSE,
 } from './golden-set.constants';
 import type {
@@ -120,7 +121,7 @@ export class PrismaGoldenSetReader implements GoldenSetReader {
       parentId: null,
       reviewDecision: { not: null },
     });
-    const batchItems = await pages(this.client.batchItem, {
+    const turboRunItems = await pages(this.client.turboRunItem, {
       ...branded,
       reviewDecision: { not: null },
     });
@@ -200,7 +201,7 @@ export class PrismaGoldenSetReader implements GoldenSetReader {
         const id = string(record(record(entry.data).metadata).postId);
         return id === null ? [] : [id];
       }),
-      ...batchItems.flatMap((item) => {
+      ...turboRunItems.flatMap((item) => {
         const id = string(record(item.data).postId);
         return id === null ? [] : [id];
       }),
@@ -208,13 +209,13 @@ export class PrismaGoldenSetReader implements GoldenSetReader {
         .filter((source) => source.startsWith('post:'))
         .map((source) => source.slice(5)),
     ]);
-    const linkedBatchItems = await pages(this.client.batchItem, {
+    const linkedTurboRunItems = await pages(this.client.turboRunItem, {
       ...tenant,
       id: {
         in: unique(
           references
-            .filter((source) => source.startsWith('batch_item:'))
-            .map((source) => source.slice(11)),
+            .filter((source) => source.startsWith(TURBO_RUN_ITEM_SOURCE_PREFIX))
+            .map((source) => source.slice(TURBO_RUN_ITEM_SOURCE_PREFIX.length)),
         ),
       },
     });
@@ -223,7 +224,7 @@ export class PrismaGoldenSetReader implements GoldenSetReader {
       id: {
         in: unique([
           ...postIds,
-          ...linkedBatchItems.flatMap((item) => {
+          ...linkedTurboRunItems.flatMap((item) => {
             const id = string(record(item.data).postId);
             return id === null ? [] : [id];
           }),
@@ -270,7 +271,7 @@ export class PrismaGoldenSetReader implements GoldenSetReader {
       credentials,
       members,
       posts,
-      batchItems,
+      turboRunItems,
       evaluations,
       newsletters,
       profiles,
@@ -279,7 +280,7 @@ export class PrismaGoldenSetReader implements GoldenSetReader {
       linkedPosts,
       linkedArticles,
       linkedNewsletters,
-      linkedBatchItems,
+      linkedTurboRunItems,
       threadChildren,
     };
   }

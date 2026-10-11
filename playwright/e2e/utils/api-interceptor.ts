@@ -264,7 +264,7 @@ export function generateMockOrganizationSettings(
     moduleOverrides: {
       motion: true,
       clips: true,
-      batch: true,
+      turbo: true,
       editor: true,
       automation: true,
       messages: true,

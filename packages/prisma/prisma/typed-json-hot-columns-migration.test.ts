@@ -14,9 +14,9 @@ const migrationSource = readFileSync(
 );
 
 describe('typed JSON hot columns migration (#2519)', () => {
-  it('adds BatchItem rows plus the ContentPlan / Insight scalar filter columns', () => {
-    expect(schemaSource).toContain('enum BatchItemStatus');
-    expect(schemaSource).toContain('model BatchItem');
+  it('adds TurboRunItem rows plus the ContentPlan / Insight scalar filter columns', () => {
+    expect(schemaSource).toContain('enum TurboRunItemStatus');
+    expect(schemaSource).toContain('model TurboRunItem');
     expect(schemaSource).toContain('executedCount  Int          @default(0)');
     expect(schemaSource).toContain(
       'status         String       @default("pending")',

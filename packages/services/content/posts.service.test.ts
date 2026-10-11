@@ -490,7 +490,7 @@ describe('PostsService', () => {
             creditCost: 1,
             groupId: 'group-1',
             requestedCount: 3,
-            reviewBatchId: 'batch-1',
+            reviewTurboRunId: 'batch-1',
             sourceKind: 'owned-post',
             voiceMode: 'brand-voice',
             voiceModeLabel: 'Brand voice',
@@ -512,7 +512,7 @@ describe('PostsService', () => {
       expect(result.posts).toHaveLength(1);
       expect(result.meta).toMatchObject({
         actualCount: 1,
-        reviewBatchId: 'batch-1',
+        reviewTurboRunId: 'batch-1',
       });
     });
   });

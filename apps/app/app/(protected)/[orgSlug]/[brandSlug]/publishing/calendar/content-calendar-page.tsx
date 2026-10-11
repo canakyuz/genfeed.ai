@@ -969,8 +969,8 @@ export default function ContentCalendarPage({
             push(
               href(
                 createPublishingApprovalsRoute({
-                  batch: draft.reviewBatchId,
-                  filter: draft.reviewBatchId ? 'ready' : undefined,
+                  run: draft.reviewTurboRunId,
+                  filter: draft.reviewTurboRunId ? 'ready' : undefined,
                 }),
               ),
             );
