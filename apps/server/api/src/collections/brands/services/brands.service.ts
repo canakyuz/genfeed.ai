@@ -57,6 +57,7 @@ import {
   computeNextRunAtOrThrow,
   isSchedulableTimezone,
 } from '@api/collections/workflows/utils/cron-schedule.util';
+import type { WorkflowSchedulePrincipal } from '@api/collections/workflows/utils/workflow-schedule-actor.util';
 import {
   CACHE_PATTERNS,
   CACHE_TAGS,
@@ -623,6 +624,7 @@ export class BrandsService extends BaseService<
     brandId: string,
     orgId: string,
     agentConfig: BrandAgentConfig | UpdateBrandAgentConfigDto,
+    principal?: WorkflowSchedulePrincipal | null,
     retryCount = 0,
   ): Promise<BrandDocument | null> {
     this.logger.debug('Updating brand agent config', {
@@ -711,6 +713,7 @@ export class BrandsService extends BaseService<
           brandId,
           orgId,
           agentConfig,
+          principal,
           retryCount + 1,
         );
       }
@@ -740,7 +743,7 @@ export class BrandsService extends BaseService<
         orgId,
         brandId,
         updatedConfig,
-        { isSchedulerRequired: false },
+        { isSchedulerRequired: false, principal: principal ?? undefined },
       );
     }
 
