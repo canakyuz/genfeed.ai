@@ -4,10 +4,11 @@ import { breakoutPublicationState } from '@api/collections/outliers/services/bre
 import { loadBreakoutPublication } from '@api/collections/outliers/services/breakout-publication-source.util';
 import { loadPostExposurePublication } from '@api/collections/outliers/services/post-exposure-observation.util';
 import {
-  type BrandedPostMaterialRecord,
+  type BrandedPostMaterialSource,
   bindBrandedPostMaterialLayout,
   brandedPostMaterialSelect,
   describeBrandedPostMaterialLayout,
+  toBrandedPostMaterialRecord,
 } from '@api/services/branded-generation-receipts/branded-generation-post-material.util';
 import {
   PersistedReviewDecision,
@@ -30,7 +31,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 /** Compare complete retained material; this does not acquire or authorize new provider work. */
 function matchesPostArtifact(
   scope: Readonly<BreakoutOutputRecoveryInput>,
-  post: BrandedPostMaterialRecord,
+  post: BrandedPostMaterialSource,
   artifact: BrandGenerationArtifactV1 | null,
   format: string,
 ): boolean {
@@ -306,7 +307,7 @@ export async function readBreakoutOutputRecovery(
     output.isDeleted
   )
     return { status: 'unavailable', reason: 'scope_mismatch' };
-  const post = await tx.post.findFirst({
+  const loadedPost = await tx.post.findFirst({
     where: {
       breakoutOutputId: outputId,
       organizationId,
@@ -325,6 +326,7 @@ export async function readBreakoutOutputRecovery(
       reviewVersionPinId: true,
     },
   });
+  const post = loadedPost ? toBrandedPostMaterialRecord(loadedPost) : null;
   const base = {
     status: 'available' as const,
     responseId,
