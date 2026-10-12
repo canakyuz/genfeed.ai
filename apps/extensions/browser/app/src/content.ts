@@ -4,6 +4,7 @@ import { attachXPublicationObserver } from '~platforms/x-publication-observer';
 // Multi-platform content script for Genfeed Extension
 
 import {
+  captureComposerText,
   getComposerState,
   insertContentIntoComposer,
 } from '~platforms/composer-helpers';
@@ -16,6 +17,11 @@ import {
   attachImportMenuItem,
   attachViewedPostImport,
 } from '~platforms/import-post-control';
+import {
+  findTextActionSession,
+  registerTextActionSession,
+  TextActionSession,
+} from '~platforms/text-action-session';
 import {
   createButtonContainer,
   createGenFeedDropdown,
@@ -313,6 +319,57 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       composer: getComposerState(getCurrentPlatform()),
       success: true,
     });
+    return true;
+  }
+
+  // Text actions started from the side panel: the page keeps the captured
+  // composer text, the panel only holds the id of what it may apply.
+  if (message.type === 'CAPTURE_COMPOSER_TEXT') {
+    const captured = captureComposerText(getCurrentPlatform());
+    sendResponse(
+      'error' in captured
+        ? { error: captured.error, success: false }
+        : {
+            scope: captured.snapshot.scope,
+            snapshotId: registerTextActionSession(
+              new TextActionSession(captured.snapshot),
+            ),
+            success: true,
+            text: captured.snapshot.text,
+          },
+    );
+    return true;
+  }
+
+  if (message.type === 'APPLY_COMPOSER_TEXT') {
+    const session = findTextActionSession(message.snapshotId);
+    if (!session) {
+      sendResponse({
+        error: 'This suggestion expired. Run the action again.',
+        success: false,
+      });
+      return true;
+    }
+    const written = session.apply(String(message.text ?? ''));
+    if ('error' in written) {
+      sendResponse({ error: written.error, success: false });
+      return true;
+    }
+    chrome.runtime.sendMessage({
+      payload: { content: written.applied.draftAfter, success: true },
+      type: 'CONTENT_INSERTED',
+    });
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (message.type === 'UNDO_COMPOSER_TEXT') {
+    const session = findTextActionSession(message.snapshotId);
+    sendResponse(
+      session
+        ? session.undo()
+        : { error: 'This suggestion expired.', success: false },
+    );
     return true;
   }
 
