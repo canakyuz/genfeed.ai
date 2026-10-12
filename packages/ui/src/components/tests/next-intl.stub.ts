@@ -475,10 +475,11 @@ const UI_TEST_MESSAGES = {
       noAccounts:
         'No connected accounts yet. Save a draft now and connect an account later.',
       draftOnly: 'No account selected. This saves as a draft.',
+      editorsHeading: 'Or write in its own editor',
       article: 'Article',
-      articleHint: 'genfeed.ai blog',
+      articleHint: 'Long-form · blog or copy',
       newsletter: 'Newsletter',
-      newsletterHint: 'Email',
+      newsletterHint: 'Email · Beehiiv or Substack',
       handoff:
         'Article and Newsletter are written in their own editor. Continue to open it.',
       continue: 'Continue',
