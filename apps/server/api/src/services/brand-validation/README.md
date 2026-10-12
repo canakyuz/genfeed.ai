@@ -146,6 +146,56 @@ resembling the approved asset exists; it does not prove size, position or that t
 asset is the only mark. Redrawn or distorted logos in generated media usually stay
 `unknown`, and then the receipt stays in review as it does for every media artifact.
 
+## Fonts from a render manifest (exported stills)
+
+Font rules are decided only from the render manifest the platform's own renderers
+(visual projects, visual code) store with an export. `BrandValidationReceiptService`
+reads it with `BrandRenderEvidenceService.read(scope, ingredientId, bytes)` against
+the exact bytes the receipt pinned and passes the outcome to
+`validateBrandArtifact(input, { renderEvidence })`; only `verified` counts. The
+validator also checks the manifest's tenant, brand, artifact hash and medium against
+the artifact. Every other path (a model's image, an upload, no reader) has no
+manifest and stays `unknown`.
+
+An approved font is one a rule can recognize in the manifest: an `owned_asset`
+typography rule by the hash (and asset id) of the font file the renderer loaded plus
+the reported family, weight and style; a `verified_runtime` rule by the family,
+weight and style of a system font; a `font` asset rule by its file hash. A rule with
+availability `unknown` or `unavailable` cannot be recognized.
+
+Only a still with `complete` coverage is proven (video manifests inspect sampled
+frames, so text outside them is unseen). Every text layer with visible text must be
+reported by the font engine, drawn with no fallback, and drawn only with approved
+fonts; otherwise every font rule is `unknown` (`font_usage_unreported`,
+`font_fallback_used`, `font_not_approved`, `font_no_text_layers`,
+`font_coverage_partial`, `render_evidence_missing`, `render_evidence_rejected`). A
+rule then passes (`deterministic_render`, `font` proof naming the manifest id and
+hash, renderer, layers inspected and matching fonts) when its own font drew at least
+one layer, and is `unknown` (`font_not_used`) when it drew none. Fonts never fail
+here: a fallback is evidence against the design, not that this rule applies to it.
+
+## Persisted media receipts (breakout visuals)
+
+Studio image and video generations keep their raw-mode generation receipt. A breakout
+visual (`BreakoutVisualBrandReceiptService`, called by the visual output pipeline once
+the generation is ready and before the visuals are composed) also gets its own
+approved-brand receipt, keyed `<ingredientId>:brand-validation`: create, resolve (the
+approved snapshot, the identity layer `not_applicable` because the brand was not applied
+to the prompt), dispatch (the provider attempt id, else the ingredient id), bind (the
+stored bytes) and `BrandValidationReceiptService.validateReceipt`, so the palette, font,
+OCR and placement proofs are persisted with the receipt exactly as text is. It is replay
+safe, spends nothing itself, and fails soft: an unreadable approved identity or
+unreadable bytes leave no evidence rather than an error.
+
+Readiness stays what the contract allows: factual coverage is hard `unknown`, so a media
+receipt is `needs_review` at best. A hard failure (for example a required palette color
+absent) makes the receipt `blocked`. `readBreakoutMediaOutputRecovery`, which the
+schedule-time and dispatch publication gates both read, then returns `awaiting_review`
+with `quality_or_brand_blocked` for the output, which no member approval clears; the
+pipeline composes the visual onto the caption draft but does not queue it for review or
+score it. A missing visual receipt changes nothing, so the gate only ever tightens. The
+receipt inspector shows each deterministic check's measurements.
+
 Failures are `BadRequestException` with exactly one of:
 
 - `brand_validation_invalid_input`: malformed metadata/material, limits or stale identities.
