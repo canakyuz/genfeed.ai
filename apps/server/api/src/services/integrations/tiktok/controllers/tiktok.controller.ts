@@ -108,6 +108,7 @@ export class TiktokController {
       `https://www.tiktok.com/v2/auth/authorize/?client_key=${clientKey}` +
       `&redirect_uri=${encodeURIComponent(this.redirectUri)}` +
       `&response_type=code&scope=${encodeURIComponent(this.scope.join(','))}` +
+      (createCredentialDto.credentialId ? '&disable_auto_auth=1' : '') +
       `&state=${encodeURIComponent(state)}`;
 
     return serializeSingle(request, CredentialOAuthSerializer, {
@@ -308,6 +309,7 @@ export class TiktokController {
   ) {
     await this.tiktokAuthorizedSignalsService.refresh({
       credentialId,
+      force: true,
       organizationId: user.organizationId,
     });
 

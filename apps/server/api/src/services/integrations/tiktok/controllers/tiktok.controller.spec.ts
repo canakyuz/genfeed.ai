@@ -167,6 +167,16 @@ describe('TiktokController', () => {
       });
     });
 
+    it('shows consent for an explicit account reconnection', async () => {
+      const result = await controller.connect(mockRequest, mockUser, {
+        ...dto,
+        credentialId: 'existing-credential',
+      });
+      expect(result).toEqual({
+        url: expect.stringContaining('&disable_auto_auth=1&state='),
+      });
+    });
+
     it('should save unconnected credential', async () => {
       await controller.connect(mockRequest, mockUser, dto);
       expect(credentialsService.beginOAuthForBrand).toHaveBeenCalledWith(
@@ -343,6 +353,7 @@ describe('TiktokController', () => {
 
       expect(tiktokAuthorizedSignalsService.refresh).toHaveBeenCalledWith({
         credentialId,
+        force: true,
         organizationId: orgId,
       });
       expect(credentialsService.findOne).toHaveBeenCalledWith({
