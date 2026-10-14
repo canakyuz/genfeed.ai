@@ -11,8 +11,8 @@ import {
 
 describe('model.enum', () => {
   describe('ModelKey', () => {
-    it('should have 137 members', () => {
-      expect(Object.values(MODEL_KEYS)).toHaveLength(137);
+    it('should have 139 members', () => {
+      expect(Object.values(MODEL_KEYS)).toHaveLength(139);
     });
 
     it('should have correct values', () => {
@@ -296,6 +296,8 @@ describe('model.enum', () => {
       );
       expect(MODEL_KEYS.HEYGEN_VIDEO).toBe('heygen/heygen-video-1');
       expect(MODEL_KEYS.HEYGEN_VOICE).toBe('heygen/heygen-voice-1');
+      expect(MODEL_KEYS.HEYGEN_AVATAR_IV).toBe('heygen/avatar-iv');
+      expect(MODEL_KEYS.HEYGEN_AVATAR_V).toBe('heygen/avatar-v');
       expect(MODEL_KEYS.ELEVENLABS_V4).toBe('elevenlabs/eleven_v4');
       expect(MODEL_KEYS.ELEVENLABS_MULTILINGUAL_V2).toBe(
         'elevenlabs/eleven_multilingual_v2',
@@ -330,8 +332,8 @@ describe('model.enum', () => {
   });
 
   describe('ModelCategory', () => {
-    it('should have 10 members', () => {
-      expect(Object.values(ModelCategory)).toHaveLength(10);
+    it('should have 11 members', () => {
+      expect(Object.values(ModelCategory)).toHaveLength(11);
     });
 
     it('should have correct values', () => {
@@ -345,6 +347,7 @@ describe('model.enum', () => {
       expect(ModelCategory.VIDEO_UPSCALE).toBe('video-upscale');
       expect(ModelCategory.MUSIC).toBe('music');
       expect(ModelCategory.VOICE).toBe('voice');
+      expect(ModelCategory.AVATAR).toBe('avatar');
     });
   });
 
