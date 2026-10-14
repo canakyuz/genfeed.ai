@@ -88,6 +88,9 @@ export default function Searchbar({
   const internalRef = useRef<HTMLInputElement>(null);
   const resolvedRef = inputRef ?? internalRef;
   const rootRef = useRef<HTMLDivElement>(null);
+  const isPointerDownRef = useRef(false);
+  const collapseAfterPointerRef = useRef<(() => void) | null>(null);
+  const collapseFrameRef = useRef<number | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const isDebounced = Boolean(onSearch);
 
@@ -199,6 +202,43 @@ export default function Searchbar({
     resolvedRef.current?.focus();
   }, [isCollapsible, isExpanded, resolvedRef]);
 
+  useEffect(() => {
+    if (!isCollapsible) {
+      return;
+    }
+    const onPointerDown = () => {
+      isPointerDownRef.current = true;
+    };
+    const onPointerUp = () => {
+      isPointerDownRef.current = false;
+      const collapse = collapseAfterPointerRef.current;
+      collapseAfterPointerRef.current = null;
+      if (!collapse) {
+        return;
+      }
+      // The click event is dispatched after pointerup, in this same turn.
+      // Collapsing on the next frame keeps the toolbar still until that click
+      // lands. A narrow row otherwise jumps (w-64 → w-8) under the cursor.
+      collapseFrameRef.current = requestAnimationFrame(() => {
+        collapseFrameRef.current = null;
+        collapse();
+      });
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('pointerup', onPointerUp, true);
+    window.addEventListener('pointercancel', onPointerUp, true);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('pointerup', onPointerUp, true);
+      window.removeEventListener('pointercancel', onPointerUp, true);
+      collapseAfterPointerRef.current = null;
+      if (collapseFrameRef.current !== null) {
+        cancelAnimationFrame(collapseFrameRef.current);
+        collapseFrameRef.current = null;
+      }
+    };
+  }, [isCollapsible]);
+
   const collapseIfEmpty = (event: FocusEvent<HTMLInputElement>) => {
     if (!isCollapsible) {
       return;
@@ -208,6 +248,25 @@ export default function Searchbar({
       return;
     }
     if (event.currentTarget.value.trim()) {
+      return;
+    }
+    // Blur runs during pointerdown, before click, and the input is still
+    // document.activeElement for that whole event. Collapsing here moves the
+    // control under the cursor, so the click never reaches it. A keyboard
+    // blur has no pointer and closes now. relatedTarget already proved focus
+    // left this field.
+    if (isPointerDownRef.current) {
+      collapseAfterPointerRef.current = () => {
+        const input = resolvedRef.current;
+        if (input?.value.trim()) {
+          return;
+        }
+        const active = document.activeElement;
+        if (active instanceof Node && rootRef.current?.contains(active)) {
+          return;
+        }
+        setIsExpanded(false);
+      };
       return;
     }
     setIsExpanded(false);
