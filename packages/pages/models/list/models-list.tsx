@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  ButtonSize,
-  ButtonVariant,
-  ComponentSize,
-  PageScope,
-} from '@genfeedai/contracts';
+import { ButtonVariant, ComponentSize, PageScope } from '@genfeedai/contracts';
 import type { IModel } from '@genfeedai/contracts/interfaces';
 import type { ModelsListProps } from '@props/admin/models.props';
 import type { TableAction } from '@props/ui/display/table.props';
@@ -13,23 +8,8 @@ import { EmptyState } from '@ui/card/EmptyState';
 import AppTable from '@ui/display/table/Table';
 import { LazyModalModel } from '@ui/lazy/modal/LazyModal';
 import AutoPagination from '@ui/navigation/pagination/auto-pagination/AutoPagination';
-import { Button } from '@ui/primitives/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@ui/primitives/dropdown-menu';
 import FormSearchbar from '@ui/primitives/searchbar';
-import {
-  CircleCheck,
-  CircleX,
-  Coins,
-  Cpu,
-  Info,
-  MoreHorizontal,
-  Trash2,
-} from 'lucide-react';
+import { CircleCheck, CircleX, Cpu, Info, Pencil, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import AdminModelsFilters from './components/AdminModelsFilters';
@@ -78,14 +58,25 @@ export default function ModelsList({
     onRefreshRegister,
   });
 
-  // Actions - info button for all users, delete for admin only
+  // One way to see a model's details: on the admin pricing page a row click
+  // expands its pricing inline and the pencil opens the editor; elsewhere a
+  // row click (or the info action) opens the read-only details.
+  const isPricingInline = isAdminScope && Boolean(onPricingDetails);
+  const handleRowClick =
+    isPricingInline && onPricingDetails ? onPricingDetails : handleViewDetails;
   const actions: TableAction<IModel>[] = useMemo(
     () => [
-      {
-        icon: <Info />,
-        onClick: handleViewDetails,
-        tooltip: translate('viewDetails'),
-      },
+      isPricingInline
+        ? {
+            icon: <Pencil />,
+            onClick: handleViewDetails,
+            tooltip: translate('editModel'),
+          }
+        : {
+            icon: <Info />,
+            onClick: handleViewDetails,
+            tooltip: translate('viewDetails'),
+          },
       ...(isAdminScope
         ? [
             {
@@ -146,6 +137,7 @@ export default function ModelsList({
     ],
     [
       isAdminScope,
+      isPricingInline,
       translate,
       handleViewDetails,
       openConfirm,
@@ -202,71 +194,10 @@ export default function ModelsList({
               }
             : undefined
         }
-        columns={
-          isAdminScope
-            ? [
-                ...columns,
-                {
-                  key: 'actions',
-                  header: '',
-                  render: (model: IModel) => (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant={ButtonVariant.GHOST}
-                          size={ButtonSize.ICON}
-                          aria-label={translate('moreOptions', {
-                            label: model.label,
-                          })}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        onClick={(event) => event.stopPropagation()}
-                        onKeyDown={(event) => event.stopPropagation()}
-                      >
-                        {onPricingDetails ? (
-                          <DropdownMenuItem
-                            onSelect={() => onPricingDetails(model)}
-                          >
-                            <Coins />
-                            {translate('pricingDetails')}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {actions
-                          .filter(
-                            (action) =>
-                              !action.isVisible || action.isVisible(model),
-                          )
-                          .map((action) => (
-                            <DropdownMenuItem
-                              key={
-                                typeof action.tooltip === 'string'
-                                  ? action.tooltip
-                                  : action.tooltip(model)
-                              }
-                              onSelect={() => action.onClick?.(model)}
-                            >
-                              {typeof action.icon === 'function'
-                                ? action.icon(model)
-                                : action.icon}
-                              {typeof action.tooltip === 'string'
-                                ? action.tooltip
-                                : action.tooltip(model)}
-                            </DropdownMenuItem>
-                          ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ),
-                },
-              ]
-            : columns
-        }
-        actions={isAdminScope ? undefined : actions}
+        columns={columns}
+        actions={actions}
         renderExpandedRow={renderExpandedRow}
-        onRowClick={handleViewDetails}
+        onRowClick={handleRowClick}
         getRowKey={(model: IModel) => model.id}
         emptyLabel={translate('noModelsFound')}
         emptyState={
