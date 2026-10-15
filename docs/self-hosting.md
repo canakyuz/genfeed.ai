@@ -1,5 +1,21 @@
 # Self-Hosting Genfeed.ai
 
+## Requirements
+
+- Docker Engine with the Docker Compose v2 plugin (`docker compose version`), or
+  Docker Desktop. Both the release bundle and `npx @genfeedai/create` need it.
+- Node.js 24 (`>=24 <25`), only for `npx @genfeedai/create`
+- Free host ports 3000 (web), 3010 (API) and 3014 (MCP); override them with
+  `SELFHOSTED_APP_PORT`, `SELFHOSTED_API_PORT` and `SELFHOSTED_MCP_PORT` in `.env`
+- A runtime capable of running the published `linux/amd64` image (Docker Desktop
+  can use emulation on Apple Silicon)
+- About 8 GB of free disk (10 GB recommended): the images take about 7 GB, and
+  generated media needs more on top
+- RAM: no minimum is published. A clean Debian 13 install with 8 CPU and 15 GiB
+  RAM ran it fine, and idle PostgreSQL used about 59 MiB.
+- Debian 13 does not package Compose v2. Install `docker-compose-plugin` from
+  [Docker's official apt repository](https://docs.docker.com/engine/install/debian/).
+
 ## Quick Start
 
 ```bash
@@ -52,12 +68,20 @@ This still runs the published GHCR image; it does not build the checked-out
 source. Unlike a release bundle, the source template defaults to the mutable
 `latest` tag unless `GENFEED_IMAGE_TAG` is set explicitly.
 
-## Requirements
+## Troubleshooting
 
-- Docker Engine with the Docker Compose v2 plugin, or Docker Desktop
-- A runtime capable of running the published `linux/amd64` image (Docker Desktop
-  can use emulation on Apple Silicon)
-- Disk capacity for the application image, PostgreSQL, and generated media
+### `P1001: Can't reach database server at postgres:5432`
+
+The app cannot establish a database connection to `postgres:5432`. First check
+that PostgreSQL is running and ready, and inspect its logs. Use `docker compose ps`
+and `docker compose logs postgres` with the same Compose file and options used to
+start your installation. If PostgreSQL is healthy, investigate container
+connectivity. Possible causes include a host firewall,
+an iptables or nftables `FORWARD` policy that drops bridge traffic, or a
+rootless Docker or user-namespace setup. See Docker's
+[networking](https://docs.docker.com/engine/network/) and
+[packet filtering and firewalls](https://docs.docker.com/engine/network/packet-filtering-firewalls/)
+docs.
 
 ## Community Auth Modes
 
