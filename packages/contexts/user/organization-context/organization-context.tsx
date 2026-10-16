@@ -93,6 +93,59 @@ function emitSanitizedMismatch(reason: RoutedOrganizationMismatchReason): void {
   });
 }
 
+function isCancelledMembershipRead(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const record = error as Record<string, unknown>;
+  return (
+    record.isCancelled === true ||
+    record.code === 'ERR_CANCELED' ||
+    record.name === 'CanceledError' ||
+    record.name === 'AbortError'
+  );
+}
+
+type ReadOrganizations = (options?: {
+  fresh: true;
+}) => Promise<RoutedOrganizationSummary[]>;
+
+async function readOrganizations(
+  read: ReadOrganizations,
+  options?: { fresh: true },
+): Promise<RoutedOrganizationSummary[]> {
+  try {
+    return await read(options);
+  } catch (error) {
+    if (!isCancelledMembershipRead(error)) throw error;
+    return read({ fresh: true });
+  }
+}
+
+/**
+ * Reads membership after activate. A list that is already in flight can still
+ * show the previous organization as active, so a miss is read once more before
+ * the switch is treated as a real mismatch.
+ */
+async function readConfirmedOrganizations(
+  read: ReadOrganizations,
+  targetId: string,
+): Promise<RoutedOrganizationSummary[]> {
+  const organizations = await readOrganizations(read, { fresh: true });
+  if (
+    organizations.some(
+      (organization) => organization.id === targetId && organization.isActive,
+    )
+  ) {
+    return organizations;
+  }
+  return readOrganizations(read, { fresh: true });
+}
+
+function membershipReader(service: {
+  getMyOrganizations: OrganizationsService['getMyOrganizations'];
+}): ReadOrganizations {
+  return (options) => service.getMyOrganizations(options);
+}
+
 function broadcastOrganizationChange(): void {
   try {
     window.localStorage.setItem(
@@ -194,8 +247,8 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
       try {
         await invalidateTenantState();
         const initialService = await getOrganizationsService();
-        let organizations =
-          (await initialService.getMyOrganizations()) as RoutedOrganizationSummary[];
+        const readMembership = membershipReader(initialService);
+        let organizations = await readOrganizations(readMembership);
         const target = organizations.find(
           (organization) => organization.slug === routeOrganizationSlug,
         );
@@ -216,6 +269,7 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
         const activeOrganization = organizations.find(
           (organization) => organization.isActive,
         );
+        let hasSwitchedOrganization = false;
         if (activeOrganization?.id !== target.id) {
           emitSanitizedMismatch('route-auth-mismatch');
           if (isCurrentGeneration(generation, routeOrganizationSlug)) {
@@ -228,13 +282,15 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
           }
 
           await initialService.switchOrganization(target.id);
+          hasSwitchedOrganization = true;
           await invalidateTenantState();
           const refreshedService = await getOrganizationsService({
             forceRefresh: true,
           });
-          organizations =
-            (await refreshedService.getMyOrganizations()) as RoutedOrganizationSummary[];
-          broadcastOrganizationChange();
+          organizations = await readConfirmedOrganizations(
+            membershipReader(refreshedService),
+            target.id,
+          );
         }
 
         const confirmedOrganization = organizations.find(
@@ -246,6 +302,9 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
         }
 
         if (isCurrentGeneration(generation, routeOrganizationSlug)) {
+          if (hasSwitchedOrganization) {
+            broadcastOrganizationChange();
+          }
           setRequestOrganizationId(confirmedOrganization.id);
           setState({
             confirmedOrganizationId: confirmedOrganization.id,
@@ -254,10 +313,12 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
             status: 'matched',
           });
         }
-      } catch {
+      } catch (error) {
         if (isCurrentGeneration(generation, routeOrganizationSlug)) {
           setRequestOrganizationId(null);
-          emitSanitizedMismatch('switch-failed');
+          if (!isCancelledMembershipRead(error)) {
+            emitSanitizedMismatch('switch-failed');
+          }
           setState((current) => ({
             ...current,
             confirmedOrganizationId: null,
@@ -350,8 +411,10 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
             const refreshedService = await getOrganizationsService({
               forceRefresh: true,
             });
-            const refreshedOrganizations =
-              (await refreshedService.getMyOrganizations()) as RoutedOrganizationSummary[];
+            const refreshedOrganizations = await readConfirmedOrganizations(
+              membershipReader(refreshedService),
+              authorizedTarget.id,
+            );
             const confirmedTarget = refreshedOrganizations.find(
               (organization) =>
                 organization.id === authorizedTarget.id &&
@@ -361,8 +424,8 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
               throw new Error('Organization context verification failed');
             }
 
-            broadcastOrganizationChange();
             if (generationRef.current === generation) {
+              broadcastOrganizationChange();
               setState({
                 confirmedOrganizationId: confirmedTarget.id,
                 confirmedOrganizationSlug: confirmedTarget.slug,
@@ -371,10 +434,12 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
               });
               switchedSlug = confirmedTarget.slug;
             }
-          } catch {
+          } catch (error) {
             if (generationRef.current === generation) {
               setRequestOrganizationId(null);
-              emitSanitizedMismatch('switch-failed');
+              if (!isCancelledMembershipRead(error)) {
+                emitSanitizedMismatch('switch-failed');
+              }
               setState((current) => ({
                 ...current,
                 confirmedOrganizationId: null,
@@ -399,21 +464,37 @@ export function RoutedOrganizationProvider({ children }: LayoutProps) {
       try {
         await invalidateTenantState();
         const service = await getOrganizationsService({ forceRefresh: true });
-        const organizations =
-          (await service.getMyOrganizations()) as RoutedOrganizationSummary[];
-        const activeOrganization = organizations.find(
-          (organization) => organization.isActive,
-        );
-
-        if (!activeOrganization) {
-          throw new Error('Active organization context is unavailable');
-        }
+        const readMembership = membershipReader(service);
+        let organizations = await readOrganizations(readMembership, {
+          fresh: true,
+        });
         if (generationRef.current !== generation) {
           return;
         }
 
+        let activeOrganization = organizations.find(
+          (organization) => organization.isActive,
+        );
         const currentRouteOrganizationSlug = routeOrganizationSlugRef.current;
-        if (activeOrganization.slug === currentRouteOrganizationSlug) {
+        if (
+          !activeOrganization ||
+          activeOrganization.slug !== currentRouteOrganizationSlug
+        ) {
+          organizations = await readOrganizations(readMembership, {
+            fresh: true,
+          });
+          if (generationRef.current !== generation) {
+            return;
+          }
+          activeOrganization = organizations.find(
+            (organization) => organization.isActive,
+          );
+        }
+
+        if (!activeOrganization) {
+          throw new Error('Active organization context is unavailable');
+        }
+        if (activeOrganization.slug === routeOrganizationSlugRef.current) {
           setRequestOrganizationId(activeOrganization.id);
           setState({
             confirmedOrganizationId: activeOrganization.id,
