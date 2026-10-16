@@ -16,6 +16,7 @@ import { replacePostIngredientLinks } from '@api/collections/posts/services/post
 import type { ScheduledPostWorkflowSource } from '@api/collections/posts/services/scheduled-post-workflow-definition';
 import type { ScheduledPostWorkflowQueueService } from '@api/collections/posts/services/scheduled-post-workflow-queue.service';
 import type { PublishApprovalsService } from '@api/collections/publish-approvals/services/publish-approvals.service';
+import { NotFoundException } from '@api/exceptions/not-found.exception';
 import {
   type ApiKeyPublishingContext,
   assertApiKeyPublishingScope,
@@ -97,13 +98,16 @@ type SchedulePostGroupTargetParams = {
   workflowSource: ScheduledPostWorkflowSource;
 };
 
-type UpdatePostGroupTargetParams = {
-  apiKeyContext?: ApiKeyPublishingContext;
-  body: unknown;
+type CanonicalReleaseLookup = {
   groupId: string;
   organizationId: string;
   targetId: string;
   userId: string;
+};
+
+type UpdatePostGroupTargetParams = CanonicalReleaseLookup & {
+  apiKeyContext?: ApiKeyPublishingContext;
+  body: unknown;
 };
 
 type ScheduledTargetResult = {
@@ -142,17 +146,27 @@ export async function schedulePostGroupTarget(
   params: SchedulePostGroupTargetParams,
   dependencies: PostGroupTargetOperationDependencies,
 ): Promise<IReleaseGroup> {
-  const isDueNow = params.scheduledDate.getTime() <= Date.now() + 5000;
+  const groupId = await resolveCanonicalReleaseId(
+    {
+      groupId: params.groupId,
+      organizationId: params.organizationId,
+      targetId: params.targetId,
+      userId: params.userId,
+    },
+    dependencies,
+  );
+  const resolvedParams = { ...params, groupId };
+  const isDueNow = resolvedParams.scheduledDate.getTime() <= Date.now() + 5000;
   const scheduled = await dependencies.prisma.$transaction((tx) =>
-    scheduleTargetInTransaction(tx, params, dependencies, isDueNow),
+    scheduleTargetInTransaction(tx, resolvedParams, dependencies, isDueNow),
   );
 
   if (scheduled.isDueNow) {
     await dependencies.enqueueReleaseTargets(
       scheduled.release,
-      params.userId,
-      [params.targetId],
-      params.workflowSource,
+      resolvedParams.userId,
+      [resolvedParams.targetId],
+      resolvedParams.workflowSource,
     );
   }
   return scheduled.release;
@@ -345,8 +359,8 @@ function alignYouTubeVisibilityUpdate(
   };
 }
 
-async function resolveCanonicalReleaseId(
-  params: UpdatePostGroupTargetParams,
+export async function resolveCanonicalReleaseId(
+  params: CanonicalReleaseLookup,
   dependencies: PostGroupTargetOperationDependencies,
 ): Promise<string> {
   const existing = await dependencies.prisma.postGroup.findFirst({
@@ -360,6 +374,57 @@ async function resolveCanonicalReleaseId(
     params.organizationId,
     params.userId,
     params.targetId,
+  );
+  return release.id;
+}
+
+/**
+ * Group-level publish has no target id. A legacy grouping value is resolved
+ * only while a single non-deleted root post in this organization still
+ * carries it. After that post is rebound, a retry with the old id 404s.
+ * Per-target schedule and publish stay idempotent through
+ * `ensureReleaseForPost`.
+ */
+export async function resolvePublishNowReleaseId(
+  organizationId: string,
+  userId: string,
+  groupId: string,
+  dependencies: Pick<
+    PostGroupTargetOperationDependencies,
+    'ensureReleaseForPost' | 'prisma'
+  >,
+): Promise<string> {
+  const existing = await dependencies.prisma.postGroup.findFirst({
+    select: { id: true },
+    where: scopedWhere(organizationId, { id: groupId }),
+  });
+  if (existing) {
+    return existing.id;
+  }
+
+  const roots = await dependencies.prisma.post.findMany({
+    orderBy: { id: 'asc' },
+    select: { id: true },
+    take: 2,
+    where: scopedWhere(organizationId, {
+      groupId,
+      parentId: null,
+    }),
+  });
+  const root = roots[0];
+  if (!root) {
+    throw new NotFoundException('PostGroup', groupId);
+  }
+  if (roots.length > 1) {
+    throw new BadRequestException(
+      'This grouping has several posts. Publish each target separately.',
+    );
+  }
+
+  const release = await dependencies.ensureReleaseForPost(
+    organizationId,
+    userId,
+    root.id,
   );
   return release.id;
 }

@@ -8,6 +8,7 @@ import {
   applyReleaseTargetUpdates,
   GROUP_ACTION_STATES,
   type PostGroupTargetOperationDependencies,
+  resolvePublishNowReleaseId,
   schedulePostGroupTarget,
   updatePostGroupTarget,
 } from '@api/collections/post-groups/services/post-group-target.operations';
@@ -664,11 +665,17 @@ export class PostGroupsService {
     userId: string,
     groupId: string,
   ): Promise<IReleaseGroup> {
+    const releaseId = await resolvePublishNowReleaseId(
+      organizationId,
+      userId,
+      groupId,
+      this.targetOperationDependencies(),
+    );
     const release = await this.prisma.$transaction(async (tx) => {
       const group = await this.persistenceService.getGroupOrThrow(
         tx,
         organizationId,
-        groupId,
+        releaseId,
       );
       const targets = await this.persistenceService.getTargets(
         tx,
