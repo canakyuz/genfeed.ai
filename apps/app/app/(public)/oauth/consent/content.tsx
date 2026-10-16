@@ -95,10 +95,16 @@ export default function OAuthConsentContent() {
   const isClaude =
     Boolean(requestedResource) &&
     resolveMcpAccessModeForResource(requestedResource ?? '') === 'claude';
+  const requestedScope = searchParams.get('scope') || null;
   const scopeLabels = useMemo(
-    () => getRequestedScopeLabels(searchParams.get('scope'), isClaude),
-    [searchParams, isClaude],
+    () => getRequestedScopeLabels(requestedScope, isClaude),
+    [requestedScope, isClaude],
   );
+  const requestedScopes =
+    requestedScope?.split(/\s+/).filter(Boolean) ?? API_KEY_SCOPE_PRESETS.mcp;
+  const showAdminNotice =
+    !isClaude &&
+    API_KEY_SCOPE_PRESETS.mcp.every((scope) => requestedScopes.includes(scope));
   // `state` is optional (RFC 6749 §4.1.1); PKCE is the CSRF protection.
   const requiredParams = [
     'client_id',
@@ -215,7 +221,7 @@ export default function OAuthConsentContent() {
             organizationId: approved ? selectedOrganizationId : undefined,
             redirect_uri: redirectUri,
             resource: searchParams.get('resource'),
-            scope: searchParams.get('scope') || undefined,
+            scope: requestedScope || undefined,
             // Forwarded unchanged when the client supplied one; omitted otherwise.
             state: searchParams.get('state') || undefined,
           }),
@@ -406,6 +412,12 @@ export default function OAuthConsentContent() {
             {isClaude && (
               <p className="text-sm text-muted-foreground">
                 {translate('request.claudeNotice')}
+              </p>
+            )}
+
+            {showAdminNotice && (
+              <p className="text-sm text-muted-foreground">
+                {translate('request.adminNotice')}
               </p>
             )}
 
