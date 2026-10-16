@@ -37,6 +37,11 @@ import {
   readHeyGenVideoId,
   readHeyGenVideoStatus,
 } from '@api/services/integrations/heygen/helpers/heygen-video';
+import {
+  type HeyGenVoiceListing,
+  listPersonalHeyGenVoices,
+  listPublicHeyGenVoices,
+} from '@api/services/integrations/heygen/helpers/heygen-voice-listing';
 import { heyGenAvatarCandidateSchema } from '@api/services/integrations/heygen/heygen-identity.schema';
 import type {
   HeyGenAvatarCandidate,
@@ -368,6 +373,37 @@ export class HeyGenService {
       ...voice,
       index,
     }));
+  }
+
+  /** Stock voices on the platform key, read live (the sync and DB fallback). */
+  public getPublicVoices(
+    organizationId: string,
+  ): Promise<HeyGenCatalogVoice[]> {
+    return listPublicHeyGenVoices(this.voiceListing(), organizationId);
+  }
+
+  /** The workspace's own HeyGen voices; empty without an entitled BYOK key. */
+  public getPersonalVoices(
+    organizationId: string,
+  ): Promise<HeyGenCatalogVoice[]> {
+    return listPersonalHeyGenVoices(this.voiceListing(), organizationId);
+  }
+
+  private voiceListing(): HeyGenVoiceListing {
+    return {
+      constructorName: this.constructorName,
+      getPlatformApiKey: () => this.getApiKey(),
+      lookupPersonalCredential: (organizationId) =>
+        this.byokService.lookupApiKeyWithIdentity(
+          organizationId,
+          ByokProvider.HEYGEN,
+        ),
+      platformCredentialVersion: (apiKey) =>
+        this.platformCredentialVersion(apiKey),
+      readVoiceCatalog: (connection, ownership) =>
+        this.readVoiceCatalog(connection, ownership),
+      warn: (message, context) => this.loggerService.warn(message, context),
+    };
   }
 
   private async readVoiceCatalog(
