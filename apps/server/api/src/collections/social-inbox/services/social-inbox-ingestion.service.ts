@@ -20,9 +20,11 @@ import type {
   XPostRepliesIngestInput,
   XPostRepliesIngestResult,
   XReplyTargetPost,
+  YoutubeCommentIngestResult,
 } from '@api/collections/social-inbox/services/social-inbox.types';
 import { SocialInboxProviderError } from '@api/collections/social-inbox/services/social-inbox.types';
 import { SocialInboxRealtimeService } from '@api/collections/social-inbox/services/social-inbox-realtime.service';
+import { ingestOwnedYoutubeComments } from '@api/collections/social-inbox/services/youtube-comment-ingestion';
 import { WorkflowExecutionQueueService } from '@api/collections/workflows/services/workflow-execution-queue.service';
 import { resolveOptionalProvider } from '@api/helpers/utils/module-ref/resolve-optional-provider.util';
 import { scopedWhere } from '@api/index';
@@ -306,99 +308,52 @@ export class SocialInboxIngestionService {
   async ingestYoutubeComments(
     scope: SocialInboxScope,
     options: { credentialId?: string; limit?: number } = {},
-  ): Promise<{ conversationsCreated: number; messagesCreated: number }> {
-    const limit = boundLimit(options.limit ?? 25);
-    const credentials = await this.findConnectedCredentials(
-      scope,
-      PrismaCredentialPlatform.YOUTUBE,
-      options.credentialId,
-    );
-    let messagesCreated = 0;
-    let conversationsCreated = 0;
-
-    for (const credential of credentials) {
-      const posts = await this.prisma.post.findMany({
-        orderBy: { publishedAt: 'desc' },
-        take: 20,
-        where: scopedWhere(
-          scope.organizationId,
-          publicYoutubeInboxPostFilter(credential),
+  ): Promise<YoutubeCommentIngestResult> {
+    return ingestOwnedYoutubeComments(scope, options, {
+      accountFields: (credential) =>
+        accountFieldsFromCredential(credential, scope.userId),
+      findConnectedCredentials: (inboxScope, credentialId) =>
+        this.findConnectedCredentials(
+          inboxScope,
+          PrismaCredentialPlatform.YOUTUBE,
+          credentialId,
         ),
-      });
-
-      for (const post of posts) {
-        const comments = await this.youtubeService.listVideoComments(
-          scope.organizationId,
-          post.brandId,
-          String(post.externalId),
-          limit,
-          credential.id,
-        );
-
-        if (comments.length === 0) {
-          continue;
-        }
-
-        // Resolve which external ids already exist in one findMany pair for the
-        // whole post instead of a findFirst pair per comment. The sets are
-        // seeded from the DB snapshot and grown as we ingest so duplicates
-        // sharing a thread within the same batch are only counted once.
-        const existing = await this.findExistingExternalIds(
-          scope.organizationId,
+      findExistingExternalIds: (organizationId, threadIds, commentIds) =>
+        this.findExistingExternalIds(
+          organizationId,
           Platform.YOUTUBE,
-          comments.map((comment) => comment.threadId),
-          comments.map((comment) => comment.commentId),
-        );
-
-        for (const comment of comments) {
-          const isNewConversation = !existing.conversationIds.has(
-            comment.threadId,
-          );
-          const isNewMessage = !existing.messageIds.has(comment.commentId);
-
-          await this.ingestSyncedMessage(
-            {
-              ...accountFieldsFromCredential(credential, scope.userId),
-              body: comment.text,
-              brandId: post.brandId,
-              conversationType: SocialConversationType.COMMENT,
-              credentialId: credential.id,
-              createdAt: comment.createdAt,
-              externalConversationId: comment.threadId,
-              externalMessageId: comment.commentId,
-              externalParentId: comment.commentId,
-              externalThreadId: comment.threadId,
-              organizationId: scope.organizationId,
-              participantAvatarUrl: comment.authorAvatarUrl,
-              participantExternalId: comment.authorChannelId,
-              participantHandle: comment.authorChannelUrl,
-              participantName: comment.authorDisplayName,
-              platform: Platform.YOUTUBE,
-              postId: post.id,
-              sourceContentId: String(post.externalId),
-              sourceContentTitle: post.label ?? post.description.slice(0, 120),
-              sourceContentType: 'video',
-              sourceContentUrl:
-                post.url ??
-                `https://www.youtube.com/watch?v=${post.externalId}`,
-            },
-            existing.messagesByExternalId.get(comment.commentId),
-            existing.conversationsByExternalId.get(comment.threadId),
-          );
-
-          if (isNewMessage) {
-            messagesCreated++;
-            existing.messageIds.add(comment.commentId);
-          }
-          if (isNewConversation) {
-            conversationsCreated++;
-            existing.conversationIds.add(comment.threadId);
-          }
-        }
-      }
-    }
-
-    return { conversationsCreated, messagesCreated };
+          threadIds,
+          commentIds,
+        ),
+      findOwnedPosts: (organizationId, credential) =>
+        this.prisma.post.findMany({
+          orderBy: { publishedAt: 'desc' },
+          take: 20,
+          where: scopedWhere(
+            organizationId,
+            publicYoutubeInboxPostFilter(credential),
+          ),
+        }),
+      ingestSyncedMessage: (input, knownMessage, knownConversation) =>
+        this.ingestSyncedMessage(input, knownMessage, knownConversation),
+      listVideoComments: (
+        organizationId,
+        brandId,
+        videoId,
+        limit,
+        credentialId,
+      ) =>
+        this.youtubeService.listVideoComments(
+          organizationId,
+          brandId,
+          videoId,
+          limit,
+          credentialId,
+        ),
+      warn: (message, context) => {
+        this.logger?.warn(message, context);
+      },
+    });
   }
 
   async ingestInstagramComments(
