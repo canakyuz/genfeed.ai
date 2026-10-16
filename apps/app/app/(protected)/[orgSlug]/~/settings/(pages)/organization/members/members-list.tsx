@@ -1,7 +1,12 @@
 'use client';
 
 import { useBrand } from '@contexts/user/brand-context/brand-context';
-import { ButtonVariant, MemberRole, ModalEnum } from '@genfeedai/contracts';
+import {
+  ButtonVariant,
+  MemberRole,
+  ModalEnum,
+  SubscriptionTier,
+} from '@genfeedai/contracts';
 import {
   APP_ROUTES,
   EMPTY_STATES,
@@ -42,6 +47,10 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 function formatTierLabel(tier: string | null): string {
   if (!tier) {
     return 'a paid plan';
+  }
+
+  if (tier === SubscriptionTier.SCALE) {
+    return 'Agencies';
   }
 
   return tier.charAt(0).toUpperCase() + tier.slice(1);

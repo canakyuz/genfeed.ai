@@ -68,7 +68,7 @@ const mocks = vi.hoisted(() => ({
   revokeApiKey: vi.fn(),
   rotateApiKey: vi.fn(),
   saveByokProviderKey: vi.fn(),
-  settingsSubscriptionTier: 'pro',
+  settingsSubscriptionTier: 'scale',
   validateByokProviderKey: vi.fn(),
 }));
 
@@ -344,7 +344,7 @@ describe('SettingsApiKeysPage', () => {
     mocks.isReady = true;
     mocks.isSelfHosted = false;
     mocks.organizationId = 'org-1';
-    mocks.settingsSubscriptionTier = 'pro';
+    mocks.settingsSubscriptionTier = 'scale';
     mocks.getByokAllProviders.mockResolvedValue(providerStatuses());
     mocks.findAllApiKeys.mockResolvedValue(productApiKeys());
     mocks.createApiKey.mockResolvedValue({
@@ -774,7 +774,7 @@ describe('SettingsApiKeysPage', () => {
     expect(screen.getByRole('button', { name: 'Create Key' })).toBeEnabled();
   });
 
-  it('enables Create Key when the Pro org has no keys', async () => {
+  it('enables Create Key when the Agencies org has no keys', async () => {
     mocks.findAllApiKeys.mockResolvedValue([]);
     render(<SettingsApiKeysPage />);
 
@@ -813,13 +813,13 @@ describe('SettingsApiKeysPage', () => {
     render(<SettingsApiKeysPage />);
 
     expect(
-      await screen.findByText('Unlock API keys with Pro'),
+      await screen.findByText('Unlock API keys with Agencies'),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/API access is included on paid plans/),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /Upgrade to Pro/i }),
+      screen.getByRole('link', { name: /Upgrade to Agencies/i }),
     ).toHaveAttribute(
       'href',
       expect.stringContaining('/settings/subscription'),

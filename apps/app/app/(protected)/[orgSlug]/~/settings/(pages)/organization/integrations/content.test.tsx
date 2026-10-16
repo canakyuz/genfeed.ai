@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   organizationId: 'org-1',
   removeByokProviderKey: vi.fn(),
   saveByokProviderKey: vi.fn(),
-  subscriptionTier: 'pro' as string | undefined,
+  subscriptionTier: 'scale' as string | undefined,
   validateByokProviderKey: vi.fn(),
 }));
 
@@ -163,7 +163,7 @@ describe('SettingsIntegrationsPage', () => {
     mocks.desktop = false;
     mocks.isBillingEnabled = true;
     mocks.isReady = true;
-    mocks.subscriptionTier = 'pro';
+    mocks.subscriptionTier = 'scale';
     mocks.organizationId = 'org-1';
     mocks.getByokAllProviders.mockResolvedValue(providerStatuses());
     mocks.removeByokProviderKey.mockResolvedValue({});
@@ -202,17 +202,17 @@ describe('SettingsIntegrationsPage', () => {
     });
   });
 
-  it('shows the Pro upgrade prompt and blocks new keys on the free tier', async () => {
+  it('shows the Agencies upgrade prompt and blocks new keys on the free tier', async () => {
     mocks.subscriptionTier = 'free';
 
     render(<SettingsIntegrationsPage />);
 
     await screen.findByText('OpenAI');
     expect(
-      screen.getByText('Bring your own keys is included with Pro'),
+      screen.getByText('Bring your own keys is included with Agencies'),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Upgrade to Pro' }),
+      screen.getByRole('link', { name: 'Upgrade to Agencies' }),
     ).toHaveAttribute('href', '/acme/~/settings/subscription');
     expect(
       screen.queryByRole('button', { name: 'Add Key' }),
@@ -233,7 +233,7 @@ describe('SettingsIntegrationsPage', () => {
 
     await screen.findByText('OpenAI');
     expect(
-      screen.queryByText('Bring your own keys is included with Pro'),
+      screen.queryByText('Bring your own keys is included with Agencies'),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add Key' })).toBeInTheDocument();
   });

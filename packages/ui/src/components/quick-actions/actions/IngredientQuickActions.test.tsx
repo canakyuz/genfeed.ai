@@ -14,7 +14,11 @@ const mocks = vi.hoisted(() => ({
   useQuickActions: vi.fn(),
   push: vi.fn(),
   isSelfHostedDeployment: vi.fn(() => false),
-  useBrand: vi.fn(() => ({ settings: null })),
+  useBrand: vi.fn(
+    (): { settings: { subscriptionTier: SubscriptionTier } | null } => ({
+      settings: null,
+    }),
+  ),
 }));
 
 vi.mock('@hooks/ui/use-storyboard-entry/use-storyboard-entry', () => ({
@@ -172,7 +176,7 @@ describe('IngredientQuickActions', () => {
     it('unlocks the original download for SaaS paid-tier organizations', () => {
       mocks.isSelfHostedDeployment.mockReturnValue(false);
       mocks.useBrand.mockReturnValue({
-        settings: { subscriptionTier: SubscriptionTier.PRO },
+        settings: { subscriptionTier: SubscriptionTier.SCALE },
       });
       render(
         <IngredientQuickActions

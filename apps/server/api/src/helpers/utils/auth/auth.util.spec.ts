@@ -100,8 +100,8 @@ describe('getStripeSubscriptionStatus', () => {
 
 describe('getSubscriptionTier', () => {
   it('reads the user field when request context is unset', () => {
-    expect(getSubscriptionTier(makeUser({ subscriptionTier: 'pro' }))).toBe(
-      'pro',
+    expect(getSubscriptionTier(makeUser({ subscriptionTier: 'scale' }))).toBe(
+      'scale',
     );
   });
 });

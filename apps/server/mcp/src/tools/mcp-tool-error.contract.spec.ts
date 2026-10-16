@@ -59,14 +59,14 @@ describe('MCP tool error contract', () => {
       classifyMcpToolFailure({
         domainCode: 'PLAN_LIMIT_EXCEEDED',
         message:
-          'API access is available on paid plans. Upgrade to Pro to create and use API keys.',
+          'API access is available on paid plans. Upgrade to Agencies to create and use API keys.',
         status: 403,
         title: 'API access requires a paid plan',
       }),
     ).toEqual({
       code: 'plan_required',
       message:
-        'API access is available on paid plans. Upgrade to Pro to create and use API keys.',
+        'API access is available on paid plans. Upgrade to Agencies to create and use API keys.',
       nextStepUrl: appUrl(APP_ROUTES.SETTINGS.SUBSCRIPTION),
     });
 
@@ -86,6 +86,31 @@ describe('MCP tool error contract', () => {
         status: 403,
       })?.nextStepUrl,
     ).toBe(appUrl(APP_ROUTES.SETTINGS.SUBSCRIPTION));
+  });
+
+  it.each(['Agencies', 'Enterprise', 'Pro', 'Scale'])(
+    'recognizes upgrade messages for %s',
+    (plan) => {
+      expect(
+        classifyMcpToolFailure({
+          message: `Upgrade to ${plan}`,
+          status: 403,
+        }),
+      ).toMatchObject({
+        code: 'plan_required',
+        nextStepUrl: appUrl(APP_ROUTES.SETTINGS.SUBSCRIPTION),
+      });
+    },
+  );
+
+  it('recognizes the plan-required title without relying on a plan name', () => {
+    expect(
+      classifyMcpToolFailure({
+        message: 'Choose an active plan',
+        status: 403,
+        title: 'Plan required',
+      })?.code,
+    ).toBe('plan_required');
   });
 
   it('returns insufficient_credits for the ledger exception', () => {
@@ -165,7 +190,7 @@ describe('MCP tool error contract', () => {
     {
       status: 403,
       title: 'Plan required',
-      detail: 'Upgrade to Pro',
+      detail: 'Upgrade to Agencies',
       code: 'plan_required',
       route: APP_ROUTES.SETTINGS.SUBSCRIPTION,
     },
