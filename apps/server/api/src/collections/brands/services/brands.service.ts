@@ -17,6 +17,7 @@ import type {
   BrandDocument,
 } from '@api/collections/brands/schemas/brand.schema';
 import { BrandGenerationService } from '@api/collections/brands/services/brand-generation.service';
+import { applyScannedBrandKitDraft } from '@api/collections/brands/services/brand-kit-apply-persistence';
 import { BrandKitAssetsService } from '@api/collections/brands/services/brand-kit-assets.service';
 import { BrandKitDraftService } from '@api/collections/brands/services/brand-kit-draft.service';
 import { patchBrandWithLearningFenced } from '@api/collections/brands/services/brand-learning-mutation.util';
@@ -804,18 +805,33 @@ export class BrandsService extends BaseService<
     brandId: string,
     organizationId: string,
     dto: ApplyBrandKitDto,
+    userId?: string,
   ): Promise<IBrandKitApplyResult> {
-    return this.brandKitDraftService.applyBrandKitDraft(
+    const result = await applyScannedBrandKitDraft({
+      assets: this.brandKitAssetsService,
       brandId,
-      organizationId,
+      draftService: this.brandKitDraftService,
       dto,
-      (criteria) =>
+      findBrand: (criteria) =>
         this.delegate.findFirst({
           where: criteria,
         }) as Promise<BrandDocument | null>,
-      (id, orgId, updates, expectedAgentConfig) =>
+      findOwnedBrand: (criteria) => this.findOne(criteria),
+      organizationId,
+      prisma: this.prisma,
+      userId,
+      writeBrand: (id, orgId, updates, expectedAgentConfig) =>
         this.writeBrandKitDraft(id, orgId, updates, expectedAgentConfig),
-    );
+    });
+
+    if (
+      result.appliedFields.includes('logo') ||
+      result.appliedFields.includes('socialLinks')
+    ) {
+      await this.invalidateBrandContextCaches(brandId, organizationId);
+    }
+
+    return result;
   }
 
   async buildManualBrandKitDraft(
