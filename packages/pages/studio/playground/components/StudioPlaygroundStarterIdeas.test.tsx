@@ -123,4 +123,43 @@ describe('StudioPlaygroundStarterIdeas', () => {
     rerender(<StudioPlaygroundStarterIdeas onSelect={onSelect} />);
     expect(screen.getAllByText(/Add a product image/)).toHaveLength(2);
   });
+
+  it('writes a software ad about the person, not a physical product', () => {
+    const onSelect = vi.fn();
+    render(
+      <StudioPlaygroundStarterIdeas
+        offeringKind="software"
+        onSelect={onSelect}
+      />,
+    );
+
+    expect(screen.queryByText(/Open on the product/)).not.toBeInTheDocument();
+    expect(screen.getByText(/found the right match/)).toBeInTheDocument();
+    expect(screen.queryByText(/Add a product image/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use Product ad' }));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        openLibraryRole: expect.anything(),
+      }),
+    );
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        promptTemplate: undefined,
+        content: {
+          content: [
+            {
+              content: [
+                {
+                  text: 'Short ad for the software. Open on the person who just found the right match, name that feeling, end on the brand. No device, bottle, or package.',
+                  type: 'text',
+                },
+              ],
+              type: 'paragraph',
+            },
+          ],
+          type: 'doc',
+        },
+      }),
+    );
+  });
 });

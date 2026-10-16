@@ -117,6 +117,7 @@ import {
 import {
   pickStarterCharacter,
   pickStarterProductReference,
+  starterOfferingKind,
 } from '@pages/studio/playground/utils/studio-playground-starter-ideas';
 import {
   sanitizeStudioPlaygroundSettings,
@@ -929,11 +930,14 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
   }, [galleryJobs, resultSort, resultType, search]);
   const { previewRevisions, recoverPreview, recoveredJobs } =
     useStudioPlaygroundPreviewRecovery(visibleJobs);
-  const showStarterIdeas =
+  const showEmptyStarterIdeas =
     !galleryError &&
     !isLoadingGallery &&
     galleryJobs.length === 0 &&
     prompt.trim().length === 0;
+  const showDockedStarterIdeas =
+    !galleryError && !isLoadingGallery && !showEmptyStarterIdeas;
+  const starterOffering = starterOfferingKind(selectedBrand);
   const revealInspector = useContextSidebar()?.reveal;
   const handleInspectIngredient = useCallback(
     (ingredient: IIngredient) => {
@@ -2453,7 +2457,9 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
           <div
             ref={galleryScrollRef}
             tabIndex={-1}
-            className="relative z-0 h-full overflow-auto px-3 py-3 pb-40 sm:px-4 sm:py-4"
+            className={`relative z-0 h-full overflow-auto px-3 py-3 sm:px-4 sm:py-4 ${
+              showDockedStarterIdeas ? 'pb-72' : 'pb-40'
+            }`}
           >
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
               {isFocusedPreview && selectedJob ? (
@@ -2521,10 +2527,11 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
                       {translate('history.retrying')}
                     </p>
                   ) : null}
-                  {showStarterIdeas ? (
+                  {showEmptyStarterIdeas ? (
                     <StudioPlaygroundStarterIdeas
                       character={pickStarterCharacter(characterMentions)}
                       isDisabled={isGenerating}
+                      offeringKind={starterOffering}
                       onSelect={handleStarterIdea}
                       productReference={pickStarterProductReference(
                         selectedBrand?.references,
@@ -2556,6 +2563,20 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
             className="px-5 pb-5"
             layoutMode="surface-fixed"
             maxWidth="4xl"
+            topContent={
+              showDockedStarterIdeas ? (
+                <StudioPlaygroundStarterIdeas
+                  character={pickStarterCharacter(characterMentions)}
+                  isDisabled={isGenerating}
+                  isDocked
+                  offeringKind={starterOffering}
+                  onSelect={handleStarterIdea}
+                  productReference={pickStarterProductReference(
+                    selectedBrand?.references,
+                  )}
+                />
+              ) : null
+            }
             zIndex={40}
           >
             <div {...(capabilities.hasReferences ? dragHandlers : {})}>
