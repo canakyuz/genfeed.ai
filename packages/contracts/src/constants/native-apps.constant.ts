@@ -130,6 +130,31 @@ export function normalizeRailAppOrder(
   return [...new Set((ids ?? []).filter(isRailAppId))];
 }
 
+/** The app home falls back to when nothing chosen is available. */
+export const DEFAULT_HOME_APP_ID = 'workspace';
+
+/**
+ * The app a member lands on: their own choice, else the organization default,
+ * else Workspace. A choice the member cannot open right now is skipped, so a
+ * hidden or unreleased app never strands anyone on a missing page.
+ */
+export function resolveHomeAppId({
+  availableAppIds,
+  organizationHomeAppId,
+  userHomeAppId,
+}: {
+  availableAppIds: readonly string[];
+  organizationHomeAppId?: string | null;
+  userHomeAppId?: string | null;
+}): string {
+  for (const candidate of [userHomeAppId, organizationHomeAppId]) {
+    if (isRailAppId(candidate) && availableAppIds.includes(candidate)) {
+      return candidate;
+    }
+  }
+  return DEFAULT_HOME_APP_ID;
+}
+
 /**
  * Applies a member's rail order. Listed items come first in that order;
  * anything unlisted (a newly pinned or newly released app) follows in its

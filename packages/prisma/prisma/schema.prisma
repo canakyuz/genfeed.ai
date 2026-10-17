@@ -1723,6 +1723,9 @@ model Setting {
   // Rail order the member arranged, over every rail app (core and secondary).
   // Empty means the default order. Unlisted apps follow in default order.
   railAppOrder                     String[]                   @default([])
+  // The app the member lands on after login. Null falls back to the
+  // organization default, then Workspace.
+  homeAppId                        String?
   isAgentAssetsPanelOpen          Boolean                    @default(false)
   generationPriority               GenerationPriority         @default(QUALITY)
   // #4672 saved default agent mode ('auto' | 'manual' | 'plan') applied to

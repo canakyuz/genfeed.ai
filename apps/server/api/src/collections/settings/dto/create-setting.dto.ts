@@ -260,6 +260,18 @@ export class CreateSettingDto {
   })
   readonly railAppOrder?: string[];
 
+  @IsOptional()
+  @IsIn(RAIL_APP_IDS)
+  @ApiProperty({
+    description:
+      'The app the member lands on after login. Null clears it, falling back to the organization default, then Workspace. An app that is unavailable to the member at login time is skipped.',
+    enum: RAIL_APP_IDS,
+    nullable: true,
+    required: false,
+    type: String,
+  })
+  readonly homeAppId?: string | null;
+
   @IsBoolean()
   @IsOptional()
   @ApiProperty({

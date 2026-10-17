@@ -2,32 +2,53 @@
 
 import {
   isNativeSecondaryAppId,
+  isRailAppId,
   normalizeRailAppOrder,
 } from '@genfeedai/contracts/constants';
 import { useAuthedService } from '@hooks/auth/use-authed-service/use-authed-service';
 import { UsersService } from '@services/organization/users.service';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-type RailPreferenceField = 'pinnedAppIds' | 'railAppOrder';
+interface RailPreferenceValues {
+  homeAppId: string | null;
+  pinnedAppIds: string[];
+  railAppOrder: string[];
+}
 
-type RailPreferenceLists = Record<RailPreferenceField, string[]>;
+type RailPreferenceField = keyof RailPreferenceValues;
 
-type IdListUpdate = (ids: string[]) => string[];
+type RailPreferenceUpdate<Field extends RailPreferenceField> = (
+  value: RailPreferenceValues[Field],
+) => RailPreferenceValues[Field];
 
-const FIELDS: readonly RailPreferenceField[] = ['pinnedAppIds', 'railAppOrder'];
+type RailPreferenceEdit = <Field extends RailPreferenceField>(
+  field: Field,
+  update: RailPreferenceUpdate<Field>,
+) => void;
 
-const NORMALIZERS: Record<
-  RailPreferenceField,
-  (ids: readonly string[] | undefined) => string[]
-> = {
-  pinnedAppIds: (ids) => [
-    ...new Set((ids ?? []).filter(isNativeSecondaryAppId)),
+const FIELDS: readonly RailPreferenceField[] = [
+  'pinnedAppIds',
+  'railAppOrder',
+  'homeAppId',
+];
+
+const NORMALIZERS: {
+  [Field in RailPreferenceField]: (
+    value: unknown,
+  ) => RailPreferenceValues[Field];
+} = {
+  homeAppId: (value) => (isRailAppId(value) ? value : null),
+  pinnedAppIds: (value) => [
+    ...new Set(
+      (Array.isArray(value) ? value : []).filter(isNativeSecondaryAppId),
+    ),
   ],
-  railAppOrder: normalizeRailAppOrder,
+  railAppOrder: (value) =>
+    normalizeRailAppOrder(Array.isArray(value) ? value : []),
 };
 
-function emptyLists(): RailPreferenceLists {
-  return { pinnedAppIds: [], railAppOrder: [] };
+function emptyValues(): RailPreferenceValues {
+  return { homeAppId: null, pinnedAppIds: [], railAppOrder: [] };
 }
 
 function toggledIds(ids: readonly string[], appId: string): string[] {
@@ -37,34 +58,36 @@ function toggledIds(ids: readonly string[], appId: string): string[] {
 }
 
 /**
- * The signed-in user's rail preferences: which secondary apps are pinned and
- * the order of the rail. Both live on their settings row and share one read.
+ * The signed-in user's rail preferences: which secondary apps are pinned, the
+ * order of the rail, and the home app. They live on their settings row and
+ * share one read. `isLoaded` turns true once the read settles, failed or not,
+ * so callers can wait for saved preferences before acting on defaults.
  */
 export function useRailPreferences() {
   const getUsers = useAuthedService((token) => UsersService.getInstance(token));
-  const [lists, setLists] = useState<RailPreferenceLists>(emptyLists);
-  const editRef = useRef<
-    (field: RailPreferenceField, update: IdListUpdate) => void
-  >(() => {});
+  const [values, setValues] = useState<RailPreferenceValues>(emptyValues);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const editRef = useRef<RailPreferenceEdit>(() => {});
 
   useEffect(() => {
     const controller = new AbortController();
-    let desired = emptyLists();
-    let confirmed = emptyLists();
+    let desired = emptyValues();
+    let confirmed = emptyValues();
     const revision: Record<RailPreferenceField, number> = {
+      homeAppId: 0,
       pinnedAppIds: 0,
       railAppOrder: 0,
     };
     const dirty = new Set<RailPreferenceField>();
     let isReady = false;
     let isSaving = false;
-    const queuedEdits: { field: RailPreferenceField; update: IdListUpdate }[] =
-      [];
-    setLists(emptyLists());
+    const queuedEdits: Array<(next: RailPreferenceValues) => void> = [];
+    setValues(emptyValues());
+    setIsLoaded(false);
 
-    const publish = () => setLists({ ...desired });
+    const publish = () => setValues({ ...desired });
 
-    // One write at a time prevents the server from storing out-of-order lists.
+    // One write at a time prevents the server from storing out-of-order values.
     // Responses from earlier revisions never replace a newer optimistic edit.
     const save = async () => {
       if (!isReady || isSaving || controller.signal.aborted) return;
@@ -74,7 +97,7 @@ export function useRailPreferences() {
           const field = FIELDS.find((candidate) => dirty.has(candidate));
           if (!field) return;
           const submittedRevision = revision[field];
-          const next = [...desired[field]];
+          const next = desired[field];
           try {
             const users = await getUsers();
             if (controller.signal.aborted) return;
@@ -103,14 +126,18 @@ export function useRailPreferences() {
       }
     };
 
-    const edit = (field: RailPreferenceField, update: IdListUpdate) => {
+    const edit: RailPreferenceEdit = (field, update) => {
       if (controller.signal.aborted) return;
-      revision[field] += 1;
-      if (!isReady) queuedEdits.push({ field, update });
-      desired = {
-        ...desired,
-        [field]: NORMALIZERS[field](update(desired[field])),
+      const apply = (target: RailPreferenceValues) => {
+        // The union of field types cannot be narrowed through a computed key.
+        Object.assign(target, {
+          [field]: NORMALIZERS[field](update(target[field])),
+        });
       };
+      revision[field] += 1;
+      if (!isReady) queuedEdits.push(apply);
+      desired = { ...desired };
+      apply(desired);
       dirty.add(field);
       publish();
       void save();
@@ -124,20 +151,26 @@ export function useRailPreferences() {
         const settings = await users.findMeSettings(controller.signal);
         if (controller.signal.aborted) return;
         confirmed = {
+          homeAppId: NORMALIZERS.homeAppId(settings.homeAppId),
           pinnedAppIds: NORMALIZERS.pinnedAppIds(settings.pinnedAppIds),
           railAppOrder: NORMALIZERS.railAppOrder(settings.railAppOrder),
         };
         desired = { ...confirmed };
-        for (const { field, update } of queuedEdits) {
-          desired[field] = NORMALIZERS[field](update(desired[field]));
-        }
+        for (const apply of queuedEdits) apply(desired);
         isReady = true;
         publish();
-        if (queuedEdits.length > 0) void save();
+        setIsLoaded(true);
+        if (queuedEdits.length > 0) {
+          for (const field of FIELDS) {
+            if (revision[field] > 0) dirty.add(field);
+          }
+          void save();
+        }
       } catch {
         if (controller.signal.aborted) return;
         // Do not replace unknown saved preferences after a failed initial read.
-        setLists(emptyLists());
+        setValues(emptyValues());
+        setIsLoaded(true);
         editRef.current = () => {};
       }
     })();
@@ -157,9 +190,16 @@ export function useRailPreferences() {
     editRef.current('railAppOrder', () => [...order]);
   }, []);
 
+  const setHomeAppId = useCallback((appId: string | null) => {
+    editRef.current('homeAppId', () => appId);
+  }, []);
+
   return {
-    pinnedAppIds: lists.pinnedAppIds,
-    railAppOrder: lists.railAppOrder,
+    homeAppId: values.homeAppId,
+    isLoaded,
+    pinnedAppIds: values.pinnedAppIds,
+    railAppOrder: values.railAppOrder,
+    setHomeAppId,
     setRailAppOrder,
     togglePin,
   };

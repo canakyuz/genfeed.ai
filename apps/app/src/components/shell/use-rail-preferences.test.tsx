@@ -196,4 +196,47 @@ describe('rail pin persistence', () => {
     expect(result.current.pinnedAppIds).toEqual(['playground', 'discovery']);
     expect(result.current.railAppOrder).toEqual(['analytics', 'workspace']);
   });
+
+  it('reports loaded after the read, including a failed one', async () => {
+    const { result } = renderHook(useRailPreferences);
+    expect(result.current.isLoaded).toBe(false);
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+
+    mocks.findMeSettings.mockRejectedValueOnce(new Error('offline'));
+    const failed = renderHook(useRailPreferences);
+    await waitFor(() => expect(failed.result.current.isLoaded).toBe(true));
+    expect(failed.result.current.homeAppId).toBeNull();
+  });
+
+  it('saves the home app and clears it with null', async () => {
+    mocks.findMeSettings.mockResolvedValue({
+      homeAppId: 'agent',
+      pinnedAppIds: [],
+    });
+    const { result } = renderHook(useRailPreferences);
+    await waitFor(() => expect(result.current.homeAppId).toBe('agent'));
+
+    act(() => result.current.setHomeAppId('library'));
+    expect(result.current.homeAppId).toBe('library');
+    await waitFor(() =>
+      expect(mocks.patchMeSettings).toHaveBeenLastCalledWith({
+        homeAppId: 'library',
+      }),
+    );
+
+    act(() => result.current.setHomeAppId(null));
+    await waitFor(() =>
+      expect(mocks.patchMeSettings).toHaveBeenLastCalledWith({
+        homeAppId: null,
+      }),
+    );
+    expect(result.current.homeAppId).toBeNull();
+  });
+
+  it('ignores a saved home app the catalog does not know', async () => {
+    mocks.findMeSettings.mockResolvedValue({ homeAppId: 'studio' });
+    const { result } = renderHook(useRailPreferences);
+    await waitFor(() => expect(result.current.isLoaded).toBe(true));
+    expect(result.current.homeAppId).toBeNull();
+  });
 });

@@ -15,6 +15,7 @@ export const settingAttributes = createEntityAttributes([
   'favoriteWorkflowIds',
   'pinnedAppIds',
   'railAppOrder',
+  'homeAppId',
   'isAgentAssetsPanelOpen',
   'dashboardPreferences',
   'generationPriority',

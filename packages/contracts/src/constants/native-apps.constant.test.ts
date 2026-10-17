@@ -3,6 +3,7 @@ import type { NativeAppAvailabilityInput } from '../interfaces/ui/native-app.int
 import {
   applyRailAppOrder,
   CORE_APP_IDS,
+  DEFAULT_HOME_APP_ID,
   isNativeSecondaryAppId,
   isWorkflowLibraryVisible,
   NATIVE_SECONDARY_APP_IDS,
@@ -10,6 +11,7 @@ import {
   normalizeInstalledAppIds,
   normalizeRailAppOrder,
   RAIL_APP_IDS,
+  resolveHomeAppId,
   resolveNativeAppAvailability,
 } from './native-apps.constant';
 import { ORGANIZATION_MODULE_IDS } from './organization-modules.constant';
@@ -202,5 +204,44 @@ describe('rail app order', () => {
     expect(
       applyRailAppOrder(items, ['zzz', 'd']).map((item) => item.id),
     ).toEqual(['d', 'a', 'b', 'c']);
+  });
+});
+
+describe('resolveHomeAppId', () => {
+  const availableAppIds = ['workspace', 'agent', 'playground'];
+
+  it('prefers the member, then the organization, then Workspace', () => {
+    expect(
+      resolveHomeAppId({
+        availableAppIds,
+        organizationHomeAppId: 'agent',
+        userHomeAppId: 'playground',
+      }),
+    ).toBe('playground');
+    expect(
+      resolveHomeAppId({
+        availableAppIds,
+        organizationHomeAppId: 'agent',
+        userHomeAppId: null,
+      }),
+    ).toBe('agent');
+    expect(resolveHomeAppId({ availableAppIds })).toBe(DEFAULT_HOME_APP_ID);
+  });
+
+  it('skips a choice that is unavailable or unknown', () => {
+    expect(
+      resolveHomeAppId({
+        availableAppIds,
+        organizationHomeAppId: 'agent',
+        userHomeAppId: 'turbo',
+      }),
+    ).toBe('agent');
+    expect(
+      resolveHomeAppId({
+        availableAppIds,
+        organizationHomeAppId: 'studio',
+        userHomeAppId: 'turbo',
+      }),
+    ).toBe('workspace');
   });
 });

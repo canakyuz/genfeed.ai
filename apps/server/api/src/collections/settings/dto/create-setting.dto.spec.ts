@@ -29,6 +29,25 @@ describe('CreateSettingDto', () => {
     expect(CreateSettingDto).toBeDefined();
   });
 
+  describe('homeAppId', () => {
+    async function homeAppIdErrorsFor(homeAppId: unknown) {
+      const dto = plainToInstance(CreateSettingDto, { homeAppId });
+      const errors = await validate(dto);
+
+      return errors.filter((error) => error.property === 'homeAppId');
+    }
+
+    it('accepts any rail app, or null to clear it', async () => {
+      expect(await homeAppIdErrorsFor('agent')).toEqual([]);
+      expect(await homeAppIdErrorsFor('turbo')).toEqual([]);
+      expect(await homeAppIdErrorsFor(null)).toEqual([]);
+    });
+
+    it('rejects an unknown app id', async () => {
+      expect(await homeAppIdErrorsFor('studio')).toHaveLength(1);
+    });
+  });
+
   describe('railAppOrder', () => {
     it('accepts core and secondary app ids in any order', async () => {
       expect(await railAppOrderErrorsFor(['turbo', 'workspace', 'agent'])).toEqual(
