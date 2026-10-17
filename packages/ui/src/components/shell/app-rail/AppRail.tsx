@@ -1,15 +1,8 @@
 'use client';
 
 import { ButtonVariant } from '@genfeedai/contracts';
-import {
-  applyRailAppOrder,
-  isNativeAppLaunchable,
-  isNativeSecondaryAppId,
-  NATIVE_SECONDARY_APP_IDS,
-  resolveNativeAppAvailability,
-} from '@genfeedai/contracts/constants';
+import { applyRailAppOrder } from '@genfeedai/contracts/constants';
 import type {
-  AppRailItemConfig,
   AppRailNavigationItem,
   AppRailNavigationVia,
 } from '@genfeedai/contracts/interfaces/ui/app-rail.interface';
@@ -37,6 +30,7 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useMemo, useState } from 'react';
 import { AppRailCustomize } from './AppRailCustomize';
 import { AppRailMore } from './AppRailMore';
+import { resolveAvailableRailApps } from './app-rail.availability';
 import { moveRailAppBy } from './app-rail.order';
 import {
   ADMIN_RAIL_APP,
@@ -46,7 +40,6 @@ import {
   getActiveAppId,
   getAppRailHref,
   getAppRailShortcut,
-  isAppRailItemEnabled,
   isAppRailItemLocked,
 } from './app-rail.registry';
 import { useAppRailNavigation } from './use-app-rail-navigation';
@@ -194,33 +187,6 @@ function AppRailItem({
   );
 }
 
-/**
- * A launcher app shows only while its platform switches are on and the member
- * has it installed with organization, subscription and release access. An
- * absent `installedAppIds` or `moduleAccess` is a neutral surface with no
- * member or organization to consult.
- */
-function isLauncherAppAvailable(
-  app: AppRailItemConfig,
-  {
-    installedAppIds,
-    moduleAccess,
-  }: Pick<AppRailProps, 'installedAppIds' | 'moduleAccess'>,
-): boolean {
-  if (!isNativeSecondaryAppId(app.id)) return false;
-  return isNativeAppLaunchable(
-    resolveNativeAppAvailability({
-      appId: app.id,
-      installedAppIds: installedAppIds ?? NATIVE_SECONDARY_APP_IDS,
-      organizationAccess:
-        moduleAccess === undefined || !app.organizationModule
-          ? { isAllowed: true, reason: null }
-          : (moduleAccess?.[app.organizationModule] ?? null),
-      pinnedAppIds: [],
-    }),
-  );
-}
-
 export function AppRail({
   badges,
   brandAwareSlug,
@@ -257,21 +223,12 @@ export function AppRail({
       // The back button is the way out of admin; the categories are the admin nav.
       return [ADMIN_RAIL_BACK_APP, ...ADMIN_RAIL_CATEGORIES];
     }
-    const visible = APP_RAIL_REGISTRY.filter((app) => {
-      if (!isAppRailItemEnabled(app, flags, isConfigured)) {
-        return false;
-      }
-      if (app.group === 'app') {
-        return isLauncherAppAvailable(app, {
-          installedAppIds,
-          moduleAccess,
-        });
-      }
-      return (
-        !app.organizationModule ||
-        modulePreferences === undefined ||
-        modulePreferences?.[app.organizationModule] === true
-      );
+    const visible = resolveAvailableRailApps({
+      flags,
+      installedAppIds,
+      isConfigured,
+      moduleAccess,
+      modulePreferences,
     });
     return showAdmin ? [...visible, ADMIN_RAIL_APP] : visible;
   }, [
