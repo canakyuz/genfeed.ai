@@ -15,8 +15,9 @@ import SidebarActionTrigger from '@ui/menus/sidebar-action-trigger/SidebarAction
 import SidebarSearchTrigger from '@ui/menus/sidebar-search-trigger/SidebarSearchTrigger';
 import AppSidebar from '@ui/shell/menus/AppSidebar';
 import { Plus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { isAgentOnboardingPathname } from '@/lib/navigation/agent-onboarding-path';
 import { useOpenTaskComposer } from './useOpenTaskComposer';
 
 type AppSidebarSurface = {
@@ -40,7 +41,6 @@ type Props = {
   isAdminRoute: boolean;
   isAnalyticsRoute: boolean;
   isConversationRoute: boolean;
-  isFocusedOnboardingRoute: boolean;
   isLibraryRoute: boolean;
   isMessagesRoute?: boolean;
   isOrgRoute: boolean;
@@ -80,7 +80,6 @@ export default function AppProtectedLayoutSidebar({
   isAdminRoute,
   isAnalyticsRoute,
   isConversationRoute,
-  isFocusedOnboardingRoute,
   isLibraryRoute,
   isMessagesRoute = false,
   isOrgRoute,
@@ -111,6 +110,7 @@ export default function AppProtectedLayoutSidebar({
   const isDesktop = useIsDesktopClient();
   const newItemShortcut = isDesktop ? '⌘⇧N' : undefined;
   const { href } = useOrgUrl();
+  const isOnboardingHold = isAgentOnboardingPathname(usePathname());
   const sidebarStateProps = {
     isCollapsed,
     onClose,
@@ -122,12 +122,16 @@ export default function AppProtectedLayoutSidebar({
       <SidebarActionTrigger
         ariaLabel={translate('newTaskAriaLabel')}
         icon={<Plus className="size-4 flex-shrink-0" />}
+        isDisabled={isOnboardingHold}
         label={translate('newTask')}
         onClick={openTaskComposer}
         shortcut={newItemShortcut}
         testId="sidebar-primary-action"
       />
-      <SidebarSearchTrigger label={translate('search')} />
+      <SidebarSearchTrigger
+        isDisabled={isOnboardingHold}
+        label={translate('search')}
+      />
     </>
   );
 
@@ -139,18 +143,18 @@ export default function AppProtectedLayoutSidebar({
       <SidebarActionTrigger
         ariaLabel={translate('newConversationAriaLabel')}
         icon={<Plus className="size-4 flex-shrink-0" />}
+        isDisabled={isOnboardingHold}
         label={translate('newConversation')}
         onClick={() => router.push(href(APP_ROUTES.AGENT.NEW))}
         shortcut={newItemShortcut}
         testId="sidebar-primary-action"
       />
-      <SidebarSearchTrigger label={translate('search')} />
+      <SidebarSearchTrigger
+        isDisabled={isOnboardingHold}
+        label={translate('search')}
+      />
     </>
   );
-
-  if (isFocusedOnboardingRoute) {
-    return null;
-  }
 
   // A module owns the nav column by handing the shell a panel: the surface
   // keeps its logo, label, switchers and primary destinations, and the panel

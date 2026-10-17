@@ -114,6 +114,7 @@ vi.mock('@ui/feedback/alert/Alert', () => ({
 vi.mock('@ui/layout/prompt-bar-container/PromptBarContainer', () => ({
   default: function MockPromptBarContainer(props: {
     children?: ReactNode;
+    className?: string;
     containerRef?: (node: HTMLDivElement | null) => void;
     isVisible?: boolean;
     layoutMode?: string;
@@ -127,6 +128,7 @@ vi.mock('@ui/layout/prompt-bar-container/PromptBarContainer', () => ({
 
     return (
       <div
+        className={props.className}
         data-layout-mode={props.layoutMode}
         data-max-width={props.maxWidth}
         data-show-top-fade={props.showTopFade ? 'true' : 'false'}
@@ -382,6 +384,7 @@ type StoreState = {
   setActiveRunStatus: ReturnType<typeof vi.fn>;
   setCreditsRemaining: ReturnType<typeof vi.fn>;
   setDraftAgentMode: ReturnType<typeof vi.fn>;
+  seedComposer: ReturnType<typeof vi.fn>;
   setError: ReturnType<typeof vi.fn>;
   setLatestProposedPlan: ReturnType<typeof vi.fn>;
   setIsLoadingOlderMessages: ReturnType<typeof vi.fn>;
@@ -469,6 +472,7 @@ const storeState: StoreState = {
     storeState.draftAgentMode = mode;
   }),
   setDraftRuntimeKey: vi.fn(),
+  seedComposer: vi.fn(),
   setError: vi.fn(),
   setLatestProposedPlan: vi.fn((plan) => {
     storeState.latestProposedPlan = plan;
@@ -593,6 +597,7 @@ describe('AgentChatContainer', () => {
     storeState.setActiveRunStatus.mockReset();
     storeState.setCreditsRemaining.mockReset();
     storeState.setDraftAgentMode.mockReset();
+    storeState.seedComposer.mockReset();
     storeState.setError.mockReset();
     storeState.setLatestProposedPlan.mockReset();
     storeState.setIsLoadingOlderMessages.mockClear();
@@ -912,7 +917,7 @@ describe('AgentChatContainer', () => {
     );
   });
 
-  it('keeps the URL card as the only onboarding text entry', () => {
+  it('keeps the URL card and the onboarding composer together', () => {
     storeState.pendingInputRequest = {
       runId: 'run-url',
       inputRequestId: 'url-request',
@@ -922,16 +927,85 @@ describe('AgentChatContainer', () => {
       allowFreeText: true,
       options: [],
     };
-    const view = render(
+    render(
       <AgentChatContainer
         apiService={createApiService() as never}
         onboardingMode
         isStreaming
       />,
     );
+    const footer = screen.getByTestId('agent-column-composer');
+    const answer = screen.getByTestId('onboarding-answer');
+    const composer = screen.getByTestId('chat-input');
+    expect(footer).toContainElement(answer);
+    expect(footer).toContainElement(composer);
+    expect(answer.contains(composer)).toBe(false);
     expect(
-      view.container.querySelector('[data-testid="agent-chat-input-shell"]'),
+      answer.compareDocumentPosition(composer) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Your brand link' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Submit requested input' }),
     ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'submit' })).toBeNull();
+  });
+
+  it('confirms onboarding skip from its own card and keeps the composer under the question', async () => {
+    storeState.pendingInputRequest = {
+      allowFreeText: true,
+      inputRequestId: 'url-request',
+      options: [{ id: 'skip', label: 'Skip' }],
+      prompt: 'Share a public link',
+      runId: 'run-url',
+      threadId: 'thread-1',
+      title: 'Your brand link',
+    };
+    const apiService = createApiService({
+      respondToInputRequest: vi.fn().mockResolvedValue({}),
+    });
+    const { container } = render(
+      <ConversationComposerShellProvider
+        contextLabel="Agent"
+        draftScopeKey="acme:thread-1:1"
+        placement="surface"
+        portalTarget={null}
+        shellState="canvas"
+      >
+        <AgentChatContainer apiService={apiService as never} onboardingMode />
+      </ConversationComposerShellProvider>,
+    );
+
+    const footer = container.querySelector(
+      '[data-testid="agent-column-composer"]',
+    );
+    const answer = container.querySelector('[data-testid="onboarding-answer"]');
+    expect(footer?.contains(answer)).toBe(true);
+    expect(answer?.querySelector('[data-testid="chat-input"]')).toBeNull();
+    expect(footer?.querySelector('[data-testid="chat-input"]')).not.toBeNull();
+    expect(footer?.textContent ?? '').not.toContain(ONBOARDING_GREETING);
+    expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'submit' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'skipCardTitle' }));
+    expect(screen.getByText('skipConfirmBody')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'skipStay' }));
+    expect(apiService.respondToInputRequest).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'skipCardTitle' }));
+    fireEvent.click(screen.getByRole('button', { name: 'skipConfirm' }));
+    await waitFor(() =>
+      expect(apiService.respondToInputRequest).toHaveBeenCalledWith(
+        'thread-1',
+        'url-request',
+        'Skip',
+        undefined,
+        expect.any(Object),
+        ['skip'],
+      ),
+    );
   });
 
   it('pins the stream to the execution that continues an answered input request', async () => {
@@ -1298,6 +1372,41 @@ describe('AgentChatContainer', () => {
     expect(screen.getByTestId('chat-input')).toBeInTheDocument();
   });
 
+  it('keeps a surface composer in the column instead of an absolute dock', () => {
+    const apiService = createApiService();
+
+    storeState.pendingInputRequest = null;
+    storeState.messages = [buildAssistantMessage()];
+
+    const { container } = render(
+      <ConversationComposerShellProvider
+        contextLabel="Agent"
+        draftScopeKey="acme:thread-1:3"
+        placement="surface"
+        portalTarget={null}
+        shellState="canvas"
+      >
+        <AgentChatContainer
+          apiService={apiService as never}
+          isStreaming
+          promptBarLayoutMode="surface-fixed"
+        />
+      </ConversationComposerShellProvider>,
+    );
+
+    const promptBar = container.querySelector(
+      '[data-layout-mode="inflow"][data-max-width="full"]',
+    );
+    expect(promptBar).not.toBeNull();
+    expect(promptBar?.className).toContain('max-w-3xl');
+    expect(
+      container.querySelector('[data-layout-mode="surface-fixed"]'),
+    ).toBeNull();
+    expect(
+      container.querySelector('[data-composer-padding="20"]'),
+    ).not.toBeNull();
+  });
+
   it('supports a rail-scoped prompt bar shell layout when requested', () => {
     const apiService = createApiService();
 
@@ -1574,32 +1683,95 @@ describe('AgentChatContainer', () => {
     expect(screen.getAllByText(ONBOARDING_GREETING)).toHaveLength(1);
   });
 
-  it('hides the onboarding composer for a button-only pending request', () => {
-    if (storeState.pendingInputRequest)
-      storeState.pendingInputRequest.allowFreeText = false;
-    render(
+  it('keeps the composer beside a button-only onboarding card', () => {
+    storeState.pendingInputRequest = {
+      allowFreeText: false,
+      inputRequestId: 'goal-request',
+      options: [{ id: 'grow_audience', label: 'Grow audience' }],
+      prompt: 'Pick a goal',
+      runId: 'run-goal',
+      threadId: 'thread-1',
+      title: 'Goal',
+    };
+    const { container } = render(
       <AgentChatContainer
         apiService={createApiService() as never}
         onboardingMode
       />,
     );
-    expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument();
+    const footer = container.querySelector(
+      '[data-testid="agent-column-composer"]',
+    );
+    const answer = container.querySelector('[data-testid="onboarding-answer"]');
+    expect(footer?.contains(answer)).toBe(true);
+    expect(answer?.querySelector('[data-testid="chat-input"]')).toBeNull();
+    expect(footer?.querySelector('[data-testid="chat-input"]')).not.toBeNull();
     expect(
-      screen.getByRole('button', { name: 'Submit requested input' }),
+      screen.getByRole('button', { name: 'Grow audience' }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Submit requested input' }),
+    ).toBeNull();
+    expect(screen.queryByText('Choose one')).toBeNull();
   });
 
-  it('keeps the URL card and hides the separate onboarding composer', () => {
-    render(
-      <AgentChatContainer
-        apiService={createApiService() as never}
-        onboardingMode
-      />,
+  it('prefills the onboarding prompt bar from the suggested link and submits it', async () => {
+    storeState.pendingInputRequest = {
+      allowFreeText: true,
+      inputRequestId: 'url-request',
+      options: [{ id: 'https://genfeed.ai', label: 'Use Genfeed.Ai' }],
+      prompt: 'Share a public link about your brand.',
+      runId: 'run-url',
+      threadId: 'thread-1',
+      title: 'Your brand link',
+    };
+    const apiService = createApiService({
+      respondToInputRequest: vi.fn().mockResolvedValue({}),
+    });
+    const { container } = render(
+      <AgentChatContainer apiService={apiService as never} onboardingMode />,
     );
-    expect(screen.queryByTestId('chat-input')).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Submit requested input' }),
-    ).toBeInTheDocument();
+
+    const footer = container.querySelector(
+      '[data-testid="agent-column-composer"]',
+    );
+    const answer = container.querySelector('[data-testid="onboarding-answer"]');
+    expect(footer?.contains(answer)).toBe(true);
+    expect(answer?.querySelector('[data-testid="chat-input"]')).toBeNull();
+    expect(footer?.querySelector('[data-testid="chat-input"]')).not.toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Other' })).toBeNull();
+    await waitFor(() =>
+      expect(storeState.seedComposer).toHaveBeenCalledWith(
+        'https://genfeed.ai',
+        'thread-1',
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use Genfeed.Ai' }));
+    await waitFor(() =>
+      expect(apiService.respondToInputRequest).toHaveBeenCalledWith(
+        'thread-1',
+        'url-request',
+        'Use Genfeed.Ai',
+        undefined,
+        expect.any(Object),
+        ['https://genfeed.ai'],
+      ),
+    );
+
+    fireEvent.paste(screen.getByLabelText('Composer paste'), {
+      clipboardData: { getData: () => 'https://example.com' },
+    });
+    await waitFor(() =>
+      expect(apiService.respondToInputRequest).toHaveBeenCalledWith(
+        'thread-1',
+        'url-request',
+        'https://example.com',
+        undefined,
+        expect.any(Object),
+        undefined,
+      ),
+    );
   });
 
   it('keeps the empty-state composer full-width inside the centered column', () => {
