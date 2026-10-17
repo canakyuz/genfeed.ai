@@ -18,7 +18,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Suspense, useCallback, useMemo } from 'react';
 import { useInstalledApps } from '@/components/shell/installed-apps.provider';
-import { usePinnedRailAppsContext } from '@/components/shell/pinned-rail-apps.provider';
+import { useRailPreferencesContext } from '@/components/shell/rail-preferences.provider';
 import { resolveShellScope } from '@/components/shell/shell-scope';
 import { useMessagesUnreadCount } from '@/components/shell/use-messages-unread-count';
 import { captureAppRailNavigation } from '@/lib/analytics/app-rail-analytics';
@@ -99,7 +99,8 @@ function AppProtectedRailContent({
     pathname,
     new URLSearchParams(searchParams.toString()),
   );
-  const { pinnedAppIds } = usePinnedRailAppsContext();
+  const { pinnedAppIds, railAppOrder, setRailAppOrder, togglePin } =
+    useRailPreferencesContext();
   const preservedTaskSearch = pickOperatorTaskContextSearchParams(
     new URLSearchParams(searchParams.toString()),
   ).toString();
@@ -156,8 +157,11 @@ function AppProtectedRailContent({
       moduleAccess={moduleAccess}
       modulePreferences={modulePreferences}
       onNavigate={onNavigate}
+      onRailAppOrderChange={setRailAppOrder}
+      onTogglePin={togglePin}
       orgSlug={effectiveOrgSlug}
       pinnedAppIds={pinnedAppIds}
+      railAppOrder={railAppOrder}
       preservedSearch={preservedTaskSearch || undefined}
       resolveNavigation={resolveRailNavigation}
       showAdmin={isAdminChrome || isSuperAdmin}

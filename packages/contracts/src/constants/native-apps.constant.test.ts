@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { NativeAppAvailabilityInput } from '../interfaces/ui/native-app.interface';
 import {
+  applyRailAppOrder,
   CORE_APP_IDS,
   isNativeSecondaryAppId,
   isWorkflowLibraryVisible,
   NATIVE_SECONDARY_APP_IDS,
   NATIVE_SECONDARY_APPS,
   normalizeInstalledAppIds,
+  normalizeRailAppOrder,
+  RAIL_APP_IDS,
   resolveNativeAppAvailability,
 } from './native-apps.constant';
 import { ORGANIZATION_MODULE_IDS } from './organization-modules.constant';
@@ -165,5 +168,39 @@ describe('normalizeInstalledAppIds', () => {
       normalizeInstalledAppIds(['turbo', 'studio', 7, 'turbo', 'clips']),
     ).toEqual(['turbo', 'clips']);
     expect(normalizeInstalledAppIds(null)).toEqual([]);
+  });
+});
+
+describe('rail app order', () => {
+  it('covers the core loop and every secondary app exactly once', () => {
+    expect(RAIL_APP_IDS).toEqual([
+      ...CORE_APP_IDS,
+      ...NATIVE_SECONDARY_APP_IDS,
+    ]);
+    expect(new Set(RAIL_APP_IDS).size).toBe(RAIL_APP_IDS.length);
+  });
+
+  it('drops unknown and duplicate ids in stored order', () => {
+    expect(
+      normalizeRailAppOrder(['library', 'studio', 'library', 7, 'turbo']),
+    ).toEqual(['library', 'turbo']);
+    expect(normalizeRailAppOrder(undefined)).toEqual([]);
+  });
+
+  it('puts listed items first and keeps unlisted ones in default order', () => {
+    const items = ['a', 'b', 'c', 'd'].map((id) => ({ id }));
+
+    expect(applyRailAppOrder(items, ['c', 'a']).map((item) => item.id)).toEqual(
+      ['c', 'a', 'b', 'd'],
+    );
+    expect(applyRailAppOrder(items, []).map((item) => item.id)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+    expect(
+      applyRailAppOrder(items, ['zzz', 'd']).map((item) => item.id),
+    ).toEqual(['d', 'a', 'b', 'c']);
   });
 });

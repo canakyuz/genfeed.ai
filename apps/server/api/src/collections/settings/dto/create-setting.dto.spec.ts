@@ -17,9 +17,30 @@ async function themeErrorsFor(theme: unknown) {
   return errors.filter((error) => error.property === 'theme');
 }
 
+async function railAppOrderErrorsFor(railAppOrder: unknown) {
+  const dto = plainToInstance(CreateSettingDto, { railAppOrder });
+  const errors = await validate(dto);
+
+  return errors.filter((error) => error.property === 'railAppOrder');
+}
+
 describe('CreateSettingDto', () => {
   it('should be defined', () => {
     expect(CreateSettingDto).toBeDefined();
+  });
+
+  describe('railAppOrder', () => {
+    it('accepts core and secondary app ids in any order', async () => {
+      expect(await railAppOrderErrorsFor(['turbo', 'workspace', 'agent'])).toEqual(
+        [],
+      );
+      expect(await railAppOrderErrorsFor([])).toEqual([]);
+    });
+
+    it('rejects unknown ids and duplicates', async () => {
+      expect(await railAppOrderErrorsFor(['studio'])).toHaveLength(1);
+      expect(await railAppOrderErrorsFor(['agent', 'agent'])).toHaveLength(1);
+    });
   });
 
   describe('validation', () => {

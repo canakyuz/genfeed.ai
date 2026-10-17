@@ -22,6 +22,7 @@ export class Setting extends BaseEntity implements ISetting {
   declare public trendNotificationsMinViralScore: number;
   declare public favoriteWorkflowIds?: string[];
   declare public pinnedAppIds?: string[];
+  declare public railAppOrder?: string[];
   declare public isAgentAssetsPanelOpen?: boolean;
   declare public dashboardPreferences?: DashboardPreferences;
 

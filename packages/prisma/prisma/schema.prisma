@@ -1720,6 +1720,9 @@ model Setting {
   // #5502 native secondary apps pinned onto the rail, in pin order. User-wide;
   // a pin shows only where the app is installed and available.
   pinnedAppIds                     String[]                   @default([])
+  // Rail order the member arranged, over every rail app (core and secondary).
+  // Empty means the default order. Unlisted apps follow in default order.
+  railAppOrder                     String[]                   @default([])
   isAgentAssetsPanelOpen          Boolean                    @default(false)
   generationPriority               GenerationPriority         @default(QUALITY)
   // #4672 saved default agent mode ('auto' | 'manual' | 'plan') applied to

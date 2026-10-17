@@ -6837,6 +6837,7 @@ export const PRISMA_MODEL_METADATA: Readonly<Record<string, ModelFieldMeta>> = {
       'favoriteModelKeys',
       'favoriteWorkflowIds',
       'pinnedAppIds',
+      'railAppOrder',
     ],
     enumFields: {
       generationPriority: { enumType: 'GenerationPriority', isRequired: true },
