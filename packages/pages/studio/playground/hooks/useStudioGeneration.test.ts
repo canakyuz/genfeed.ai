@@ -630,6 +630,42 @@ describe('useStudioGeneration avatar submits', () => {
   });
 });
 
+describe('useStudioGeneration overlapping submits', () => {
+  it('accepts a second prompt while the first request is still being sent', async () => {
+    let releaseFirst: (value: { pendingIngredientIds: string[] }) => void =
+      () => {
+        throw new Error('First request not started');
+      };
+    mockImagesPost
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ pendingIngredientIds: ['img-2'] });
+    const { result } = renderStudioGeneration();
+    let first = Promise.resolve(false);
+
+    act(() => {
+      first = result.current.submit('First prompt');
+    });
+    await waitFor(() => expect(mockImagesPost).toHaveBeenCalledTimes(1));
+
+    let isSecondAccepted: boolean | undefined;
+    await act(async () => {
+      isSecondAccepted = await result.current.submit('Second prompt');
+    });
+    expect(isSecondAccepted).toBe(true);
+    expect(mockImagesPost).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      releaseFirst({ pendingIngredientIds: ['img-1'] });
+      expect(await first).toBe(true);
+    });
+  });
+});
+
 describe('useStudioGeneration failures', () => {
   it('leaves a failed card behind when the submit itself throws', async () => {
     // A toast disappears; the operator still needs to reprompt without
@@ -1048,7 +1084,7 @@ describe('Studio generation lifecycle recovery', () => {
     },
   );
 
-  it('shows submitting immediately and prevents a duplicate request in the same turn', async () => {
+  it('shows submitting immediately while the request is still being sent', async () => {
     let finish:
       | ((value: { pendingIngredientIds: string[] }) => void)
       | undefined;
@@ -1062,7 +1098,6 @@ describe('Studio generation lifecycle recovery', () => {
     let request: Promise<boolean> | undefined;
     await act(async () => {
       request = result.current.submit('Portrait');
-      void result.current.submit('Portrait');
       await Promise.resolve();
     });
     expect(result.current.jobs[0]).toMatchObject({

@@ -21,6 +21,8 @@ export interface UseStoryboardGenerationParams {
     isValid: boolean;
   };
   promptText: string;
+  /** Clears the typed prompt once a generation was accepted; settings stay. */
+  onPromptSubmitted?: () => void;
   setGeneratedAssetId: (id: string | null) => void;
 }
 
@@ -32,7 +34,6 @@ export interface UseStoryboardGenerationReturn {
   frames: IImage[];
   handleGenerateStoryboard: () => Promise<void>;
   hasInterpolationModel: boolean;
-  isStoryboardGenerating: boolean;
   setCameraMovementPreset: (preset: CameraMovementPreset) => void;
   setCustomCameraPrompt: (prompt: string) => void;
   setFrames: React.Dispatch<React.SetStateAction<IImage[]>>;

@@ -82,6 +82,7 @@ export function useStoryboardWorkspace() {
     null,
   );
   const [promptText, setPromptText] = useState('');
+  const clearPromptText = useCallback(() => setPromptText(''), []);
 
   // Scene generation is a long-running sequential batch. The controller lets
   // the user stop it, and the unmount cleanup makes navigating away cancel the
@@ -145,7 +146,6 @@ export function useStoryboardWorkspace() {
     frames: interpolateFrames,
     handleGenerateStoryboard,
     hasInterpolationModel,
-    isStoryboardGenerating,
     setCameraMovementPreset,
     setCustomCameraPrompt,
     setFrames: setInterpolateFrames,
@@ -154,6 +154,7 @@ export function useStoryboardWorkspace() {
     currentModels: videoModels,
     findAllAssets,
     mergeSettings,
+    onPromptSubmitted: clearPromptText,
     promptConfig,
     promptText,
     setGeneratedAssetId,
@@ -600,7 +601,6 @@ export function useStoryboardWorkspace() {
     interpolateFrames,
     isGeneratingScenes,
     isMerging,
-    isStoryboardGenerating,
     mergeProgress,
     mergeSelectedVideos,
     mergeSettings,

@@ -41,6 +41,7 @@ export function useStoryboardGeneration({
   currentModels,
   findAllAssets,
   mergeSettings,
+  onPromptSubmitted,
   promptConfig,
   promptText,
   setGeneratedAssetId,
@@ -61,7 +62,6 @@ export function useStoryboardGeneration({
   const [cameraMovementPreset, setCameraMovementPreset] =
     useState<CameraMovementPreset>(DEFAULT_STORYBOARD_PRESET);
   const [customCameraPrompt, setCustomCameraPrompt] = useState('');
-  const [isStoryboardGenerating, setIsStoryboardGenerating] = useState(false);
   const storyboardModels = useMemo(
     () => getStoryboardInterpolationModels(currentModels),
     [currentModels],
@@ -132,8 +132,6 @@ export function useStoryboardGeneration({
       return;
     }
 
-    setIsStoryboardGenerating(true);
-
     try {
       const service = await getVideosService();
       const duration = resolveStoryboardDuration(promptConfig.duration);
@@ -163,6 +161,7 @@ export function useStoryboardGeneration({
       }
 
       setGeneratedAssetId(processingJobs[0].id);
+      onPromptSubmitted?.();
 
       let completedCount = 0;
       const totalExpected = processingJobs.length;
@@ -266,8 +265,6 @@ export function useStoryboardGeneration({
     } catch (error) {
       logger.error('Failed to generate storyboard transitions', error);
       notificationsService.error('Failed to generate storyboard');
-    } finally {
-      setIsStoryboardGenerating(false);
     }
   }, [
     addToGenerationQueue,
@@ -279,6 +276,7 @@ export function useStoryboardGeneration({
     getVideosService,
     mergeSettings,
     notificationsService,
+    onPromptSubmitted,
     promptConfig.duration,
     promptConfig.format,
     promptConfig.height,
@@ -300,7 +298,6 @@ export function useStoryboardGeneration({
     frames,
     handleGenerateStoryboard,
     hasInterpolationModel: storyboardModels.length > 0,
-    isStoryboardGenerating,
     setCameraMovementPreset,
     setCustomCameraPrompt,
     setFrames,
