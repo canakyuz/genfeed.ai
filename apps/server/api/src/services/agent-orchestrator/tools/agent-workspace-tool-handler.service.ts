@@ -9,12 +9,14 @@ import {
   resolveCharacterFilter,
 } from '@api/collections/ingredients/services/ingredient-character-filter.service';
 import { IngredientsService } from '@api/collections/ingredients/services/ingredients.service';
+import { OrganizationsService } from '@api/collections/organizations/services/organizations.service';
 import { PersonasService } from '@api/collections/personas/services/personas.service';
 import { PostsService } from '@api/collections/posts/services/posts.service';
 import { UsersService } from '@api/collections/users/services/users.service';
 import { resolveApiKeyEffectiveMemberRole } from '@api/helpers/utils/auth/api-key-role.util';
 import { IngredientFilterUtil } from '@api/helpers/utils/ingredient-filter/ingredient-filter.util';
 import { isEntityId } from '@api/helpers/validation/entity-id.validator';
+import { readAccountIdentity } from '@api/services/agent-orchestrator/tools/agent-account-identity.util';
 import { readAgentLibraryFilters } from '@api/services/agent-orchestrator/tools/agent-library-filters.util';
 import {
   agentPostPreviewInclude,
@@ -35,6 +37,7 @@ import { postExecutionStateReadFilter } from '@genfeedai/contracts/api-types/con
 import { createLibraryAssetRoute } from '@genfeedai/contracts/constants';
 import type { AgentToolResult } from '@genfeedai/contracts/interfaces';
 import {
+  type AgentBrandSerializedData,
   serializeAgentBrand,
   serializeAgentBrands,
   serializeAgentPost,
@@ -126,6 +129,8 @@ export class AgentWorkspaceToolHandler {
     private readonly characterFilter?: IngredientCharacterFilterService,
     @Optional()
     private readonly usersService?: UsersService,
+    @Optional()
+    private readonly organizationsService?: OrganizationsService,
   ) {}
 
   /**
@@ -175,33 +180,43 @@ export class AgentWorkspaceToolHandler {
     ctx: ToolExecutionContext,
   ): Promise<Record<string, unknown>> {
     const brandId = ctx.brandId ?? ctx.validatedScope?.brandId;
-    const isOnboardingCompleted = await this.resolveOnboardingCompleted(ctx);
+    const identity = await readAccountIdentity(
+      {
+        listBrands: (context) => this.listAccessibleBrands(context),
+        organizationsService: this.organizationsService,
+        usersService: this.usersService,
+      },
+      ctx,
+      brandId,
+    );
     return {
+      ...identity,
       ...(brandId ? { brandId } : {}),
-      ...(isOnboardingCompleted === undefined ? {} : { isOnboardingCompleted }),
       organizationId: ctx.organizationId,
       role: await this.resolveOrganizationRole(ctx),
       userId: ctx.userId,
     };
   }
 
-  /**
-   * Whether the caller finished first-run onboarding. An MCP client that signed
-   * up during the OAuth connect never sees the web onboarding, so it reads this
-   * to know it must run `onboard_brand` first. Omitted when unresolved.
-   */
-  private async resolveOnboardingCompleted(
+  private async listAccessibleBrands(
     ctx: ToolExecutionContext,
-  ): Promise<boolean | undefined> {
-    if (!this.usersService) {
-      return undefined;
-    }
-    try {
-      const user = await this.usersService.findOne({ id: ctx.userId });
-      return user ? user.isOnboardingCompleted === true : undefined;
-    } catch {
-      return undefined;
-    }
+  ): Promise<AgentBrandSerializedData[]> {
+    const brandWhere = isCloudDeployment()
+      ? await this.brandAccessService.predicate({
+          userId: ctx.userId,
+          organizationId: ctx.organizationId,
+          ...ctx.apiKeyContext,
+        })
+      : { isDeleted: false, organizationId: ctx.organizationId };
+    const brands = await this.brandsService.findAll(
+      {
+        where: brandWhere,
+      },
+      {},
+    );
+    return serializeAgentBrands(
+      (brands.docs as Record<string, unknown>[] | undefined) ?? [],
+    );
   }
 
   /**
@@ -240,22 +255,7 @@ export class AgentWorkspaceToolHandler {
     params: Record<string, unknown>,
     ctx: ToolExecutionContext,
   ): Promise<AgentToolResult> {
-    const brandWhere = isCloudDeployment()
-      ? await this.brandAccessService.predicate({
-          userId: ctx.userId,
-          organizationId: ctx.organizationId,
-          ...ctx.apiKeyContext,
-        })
-      : { isDeleted: false, organizationId: ctx.organizationId };
-    const brands = await this.brandsService.findAll(
-      {
-        where: brandWhere,
-      },
-      {},
-    );
-    const serialized = serializeAgentBrands(
-      (brands.docs as Record<string, unknown>[] | undefined) ?? [],
-    );
+    const serialized = await this.listAccessibleBrands(ctx);
 
     const requested = readRequiredString(params.brand);
     if (!requested) {
