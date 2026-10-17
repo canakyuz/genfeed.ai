@@ -68,24 +68,32 @@ describe('createPrismaPgConfig', () => {
     });
   });
 
-  it('maps sslmode=no-verify to encrypted TLS without chain verification', () => {
-    const connectionString = pgUrl('db.example.com', '?sslmode=no-verify');
+  it('rejects sslmode=no-verify so TLS verification cannot be switched off', () => {
+    expect(() =>
+      createPrismaPgConfig(pgUrl('db.example.com', '?sslmode=no-verify')),
+    ).toThrow(/sslmode=no-verify is not supported/);
+  });
 
-    // sslmode is resolved into the explicit ssl object and stripped from the
-    // URL so pg never re-parses it (no deprecation warning, pg-upgrade safe).
-    expect(createPrismaPgConfig(connectionString)).toEqual({
+  it('verifies against an available CA when the URL still says sslmode=no-verify', () => {
+    expect(
+      createPrismaPgConfig(pgUrl('db.example.com', '?sslmode=no-verify'), {
+        caFilePaths: [writeCaFile('no-verify-ca')],
+      }),
+    ).toEqual({
       connectionString: pgUrl('db.example.com'),
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: 'no-verify-ca', rejectUnauthorized: true },
       ...defaultPool,
     });
   });
 
-  it('maps sslmode=require to encrypted TLS without chain verification', () => {
+  it('maps sslmode=require to verified TLS against the system trust store', () => {
     const connectionString = pgUrl('db.example.com', '?sslmode=require');
 
+    // sslmode is resolved into the explicit ssl option and stripped from the
+    // URL so pg never re-parses it (no deprecation warning, pg-upgrade safe).
     expect(createPrismaPgConfig(connectionString)).toEqual({
       connectionString: pgUrl('db.example.com'),
-      ssl: { rejectUnauthorized: false },
+      ssl: true,
       ...defaultPool,
     });
   });
@@ -107,12 +115,12 @@ describe('createPrismaPgConfig', () => {
   it('resolves Prisma pool params into pg pool config and strips them', () => {
     const connectionString = pgUrl(
       'db.example.com',
-      '?schema=public&sslmode=no-verify&connection_limit=5&pool_timeout=20',
+      '?schema=public&sslmode=require&connection_limit=5&pool_timeout=20',
     );
 
     expect(createPrismaPgConfig(connectionString)).toEqual({
       connectionString: pgUrl('db.example.com', '?schema=public'),
-      ssl: { rejectUnauthorized: false },
+      ssl: true,
       ...defaultPool,
       connectionTimeoutMillis: 20_000,
       max: 5,
