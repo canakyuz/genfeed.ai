@@ -206,6 +206,20 @@ export class ExternalVoiceCatalogService {
             updated++;
           }
         }
+
+        // An empty fetch is indistinguishable from a provider outage, so only
+        // retire voices HeyGen dropped when it returned a catalog.
+        if (voices.length > 0) {
+          // sql-risk-audit: ignore bulk-write-tenant-review -- ExternalVoice is a global provider catalog with no organization scope
+          await this.prisma.externalVoice.updateMany({
+            data: { isActive: false },
+            where: {
+              externalId: { notIn: voices.map((voice) => voice.voiceId) },
+              externalProvider: VoiceProvider.HEYGEN,
+              isActive: true,
+            },
+          });
+        }
       }
     }
 
