@@ -2,6 +2,7 @@
 
 import { useAssetSelection } from '@genfeedai/contexts/ui/asset-selection.context';
 import { useContextSidebar } from '@genfeedai/contexts/ui/context-sidebar-context';
+import { useBrand } from '@genfeedai/contexts/user/brand-context/brand-context';
 import {
   ButtonVariant,
   ComponentSize,
@@ -13,8 +14,13 @@ import {
   ModalEnum,
   PageScope,
 } from '@genfeedai/contracts';
-import { EMPTY_STATES } from '@genfeedai/contracts/constants';
+import {
+  APP_ROUTES,
+  EMPTY_STATES,
+  resolveOrganizationModulePresentationAccess,
+} from '@genfeedai/contracts/constants';
 import type { IIngredient } from '@genfeedai/contracts/interfaces';
+import { useFeatureFlagContext } from '@genfeedai/hooks/feature-flags/provider';
 import { useAuthorizedMediaPreview } from '@genfeedai/hooks/media/use-authorized-media-preview';
 import { useIntersectionObserver } from '@genfeedai/hooks/ui/use-intersection-observer/use-intersection-observer';
 import type { IngredientTimeGroupHeadingProps } from '@genfeedai/props/content/ingredient.props';
@@ -36,6 +42,7 @@ import {
   isVideoIngredient,
 } from '@genfeedai/utils/media/ingredient-type.util';
 import { getLibraryAssetType } from '@genfeedai/utils/media/library-asset-type.util';
+import { useOrgUrl } from '@hooks/navigation/use-org-url';
 import { useStoryboardEntry } from '@hooks/ui/use-storyboard-entry/use-storyboard-entry';
 import AudioPreviewPlayer from '@ui/audio/preview-player/AudioPreviewPlayer';
 import { CardEmptyContent } from '@ui/card/empty/CardEmpty';
@@ -54,11 +61,13 @@ import { groupIngredientsByTime } from '@ui/ingredients/list/media-grid/ingredie
 import FailedIngredientsRecovery from '@ui/ingredients/list/recovery/FailedIngredientsRecovery';
 import IngredientSound from '@ui/ingredients/sound/IngredientSound';
 import LazyLoadingFallback from '@ui/loading/fallback/LazyLoadingFallback';
+import { Button } from '@ui/primitives/button';
 import { hoverRevealClassName } from '@ui/styles/hover-reveal';
 import { format } from 'date-fns';
 import { Eye, Film, ImageIcon, Music, RefreshCw } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -360,6 +369,16 @@ export default function IngredientsListContent({
   const translate = useTranslations('pages.library');
   const translateActions = useTranslations('ui.quickActions');
   const storyboardEntry = useStoryboardEntry();
+  const { href } = useOrgUrl();
+  const { settings, settingsLoading } = useBrand();
+  const { flags: platformFlags } = useFeatureFlagContext();
+  // Cloud organizations start without Playground; only point at it when the
+  // organization can open it.
+  const isPlaygroundAvailable = resolveOrganizationModulePresentationAccess(
+    settingsLoading ? null : settings,
+    'playground',
+    platformFlags,
+  ).isAllowed;
   const translateRetry = useTranslations('common.libraryRetry');
   // This full-card layout is reserved for a route whose *type* is dedicated
   // to audio (the legacy per-category admin pages) — every Library route's
@@ -835,7 +854,20 @@ export default function IngredientsListContent({
           {mediaItems.length > 0 || nonVisualIngredients.length === 0 ? (
             <IngredientsMediaGrid
               emptyLabel={`No ${mediaNoun} yet`}
-              emptyDescription={`Generate or upload ${mediaNoun} to fill this list.`}
+              emptyDescription={
+                isPlaygroundAvailable
+                  ? `Prompt something in the Playground and your ${mediaNoun} will show up here.`
+                  : `Generate or upload ${mediaNoun} to fill this list.`
+              }
+              emptyActions={
+                isPlaygroundAvailable ? (
+                  <Button asChild variant={ButtonVariant.SECONDARY}>
+                    <Link href={href(APP_ROUTES.STUDIO.PLAYGROUND)}>
+                      {translate('emptyOpenPlayground')}
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
               items={mediaItems}
               onDeleteIngredient={onDeleteIngredient}
               onMarkArchived={onArchiveIngredient}
@@ -926,6 +958,7 @@ export default function IngredientsListContent({
     isLoading,
     isMediaCategory,
     isMirroring,
+    isPlaygroundAvailable,
     isPortraiting,
     isReversing,
     onArchiveIngredient,
@@ -953,6 +986,7 @@ export default function IngredientsListContent({
     type,
     viewMode,
     visualIngredients,
+    href,
   ]);
 
   // Refresh the inspected record after edits without coupling the rail to
