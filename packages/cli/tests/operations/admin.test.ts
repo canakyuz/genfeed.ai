@@ -2,8 +2,24 @@ import type {
   AdminModelPricingReport,
   AdminModelPricingRow,
 } from '@genfeedai/contracts/interfaces';
-import { describe, expect, it } from 'vitest';
-import { filterPricingRows, findPendingVersion } from '../../src/operations/admin';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  filterPricingRows,
+  findPendingVersion,
+  readOrganizationAppsReport,
+} from '../../src/operations/admin';
+
+const { mockAdminGet } = vi.hoisted(() => ({ mockAdminGet: vi.fn() }));
+
+vi.mock('../../src/api/admin-client', () => ({
+  adminGet: (path: string) => mockAdminGet(path),
+  adminPatch: vi.fn(),
+  adminPost: vi.fn(),
+}));
+
+vi.mock('../../src/api/json-api', () => ({
+  flattenSingle: <T>(response: { data: T }) => response.data,
+}));
 
 function row(overrides: Partial<AdminModelPricingRow>): AdminModelPricingRow {
   return {
@@ -22,6 +38,18 @@ function report(rows: AdminModelPricingRow[]): AdminModelPricingReport {
 }
 
 describe('operations/admin', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reads the organization apps report through the admin session', async () => {
+    const data = { generatedAt: '2026-10-17T00:00:00.000Z', organizations: [], releaseFlags: {} };
+    mockAdminGet.mockResolvedValue({ data });
+
+    await expect(readOrganizationAppsReport()).resolves.toEqual(data);
+    expect(mockAdminGet).toHaveBeenCalledWith('/admin/organization-apps');
+  });
+
   const rows = [
     row({ attentionLevel: 'red', id: 'a', key: 'a/red' }),
     row({ attentionLevel: 'orange', id: 'b', key: 'b/orange', provider: 'fal' }),
