@@ -9,10 +9,15 @@ const messagesUnread = vi.hoisted(() => ({
   count: 0,
   spy: vi.fn(),
 }));
+const preferences = vi.hoisted(() => ({
+  setRailAppOrder: vi.fn(),
+  togglePin: vi.fn(),
+}));
 vi.mock('@/components/shell/rail-preferences.provider', () => ({
   useRailPreferencesContext: () => ({
     pinnedAppIds: ['playground'],
-    togglePin: vi.fn(),
+    railAppOrder: ['library', 'agent'],
+    ...preferences,
   }),
 }));
 const installedApps = vi.hoisted(() => ({
@@ -236,10 +241,14 @@ describe('AppProtectedRail', () => {
         surface: 'desktop',
       }),
     );
-    // Pins are changed from Explore cards; the rail only reads them. The Explore
-    // link lives in the topbar.
+    // The Explore link lives in the topbar, not the rail.
     expect(appRailSpy.mock.lastCall?.[0]).not.toHaveProperty('exploreHref');
-    expect(appRailSpy.mock.lastCall?.[0]).not.toHaveProperty('onTogglePin');
+    // The member's order and pins flow in and out through the shared context.
+    expect(appRailSpy.mock.lastCall?.[0]).toMatchObject({
+      onRailAppOrderChange: preferences.setRailAppOrder,
+      onTogglePin: preferences.togglePin,
+      railAppOrder: ['library', 'agent'],
+    });
   });
 
   it('puts Help and the account avatar in the rail footer', () => {
