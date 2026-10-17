@@ -9,6 +9,7 @@ import {
   assertKeyWithinCaller,
   type RequestedApiKeyReach,
   scopesWithinCaller,
+  updatedKeyReach,
 } from '@api/collections/api-keys/utils/api-key-escalation.util';
 import { NotFoundException } from '@api/exceptions/not-found.exception';
 import { LogMethod } from '@api/helpers/decorators/log/log-method.decorator';
@@ -319,7 +320,8 @@ export class ApiKeysController {
       });
     }
 
-    await this.assertNoKeyPrivilegeEscalation(user, updateApiKeyDto, false);
+    const reach = updatedKeyReach(existingKey, updateApiKeyDto);
+    await this.assertNoKeyPrivilegeEscalation(user, reach, false);
 
     if (updateApiKeyDto.defaultBrandId !== undefined) {
       await this.apiKeysService.assertValidDefaultBrandId(
