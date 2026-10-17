@@ -3,6 +3,12 @@ import type { SchedulerPostGroup } from '@api/collections/post-groups/services/p
 import { PostGroupContractService } from '@api/collections/post-groups/services/post-group-contract.service';
 import { PostGroupPersistenceService } from '@api/collections/post-groups/services/post-group-persistence.service';
 import { PostGroupReadinessService } from '@api/collections/post-groups/services/post-group-readiness.service';
+import {
+  bindPostToRelease,
+  buildReleaseMedia,
+  findBoundGroupId,
+  ReleaseBindingLostError,
+} from '@api/collections/post-groups/services/post-group-release-binding.util';
 import { deriveReleaseTitle } from '@api/collections/post-groups/services/post-group-release-projection.util';
 import {
   applyReleaseTargetUpdates,
@@ -37,7 +43,6 @@ import {
 import { PrismaService } from '@api/shared/modules/prisma/prisma.service';
 import {
   CredentialPlatform,
-  PostCategory,
   ReleaseStatus,
   TargetExecutionState,
 } from '@genfeedai/contracts';
@@ -321,46 +326,46 @@ export class PostGroupsService {
       }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const transition = this.contractService.buildTransition(
-        null,
-        ReleaseStatus.DRAFT,
-        userId,
-      );
-      const mediaKind =
-        post.category === PostCategory.VIDEO ||
-        post.category === PostCategory.REEL
-          ? 'video'
-          : 'image';
-      const media = post.ingredients.map((ingredient, order) => ({
-        assetId: ingredient.id,
-        kind: mediaKind,
-        order,
-      }));
-      const group = await tx.postGroup.create({
-        data: {
-          attachments: this.contractService.toJson([]),
-          baseContent: post.description,
-          brandId: post.brandId,
-          media: this.contractService.toJson(media),
-          organizationId,
-          ownerId: userId,
-          status: ReleaseStatus.DRAFT,
-          statusTransitions: this.contractService.toJson([transition]),
-          timezone: post.timezone || 'UTC',
-          title: deriveReleaseTitle(post.label, post.description),
-        },
-      });
-      await tx.post.updateMany({
-        data: { groupId: group.id },
-        where: scopedWhere(organizationId, { id: post.id }),
+    try {
+      const groupId = await this.prisma.$transaction(async (tx) => {
+        const group = await tx.postGroup.create({
+          data: {
+            attachments: this.contractService.toJson([]),
+            baseContent: post.description,
+            brandId: post.brandId,
+            media: this.contractService.toJson(buildReleaseMedia(post)),
+            organizationId,
+            ownerId: userId,
+            status: ReleaseStatus.DRAFT,
+            statusTransitions: this.contractService.toJson([
+              this.contractService.buildTransition(
+                null,
+                ReleaseStatus.DRAFT,
+                userId,
+              ),
+            ]),
+            timezone: post.timezone || 'UTC',
+            title: deriveReleaseTitle(post.label, post.description),
+          },
+        });
+        await bindPostToRelease(tx, organizationId, post, group.id);
+        return group.id;
       });
       return this.persistenceService.hydrateWithDerivedStatus(
-        tx,
+        this.prisma,
         organizationId,
-        group.id,
+        groupId,
       );
-    });
+    } catch (error) {
+      if (!(error instanceof ReleaseBindingLostError)) {
+        throw error;
+      }
+      return this.persistenceService.hydrateWithDerivedStatus(
+        this.prisma,
+        organizationId,
+        await findBoundGroupId(this.prisma, organizationId, postId),
+      );
+    }
   }
 
   async update(
