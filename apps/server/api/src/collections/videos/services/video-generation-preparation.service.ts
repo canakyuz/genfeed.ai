@@ -10,6 +10,7 @@ import { PromptEntity } from '@api/collections/prompts/entities/prompt.entity';
 import { PromptsService } from '@api/collections/prompts/services/prompts.service';
 import { TemplatesService } from '@api/collections/templates/services/templates.service';
 import { CreateVideoDto } from '@api/collections/videos/dto/create-video.dto';
+import { attachAvatarAudioToCompiledDispatch } from '@api/collections/videos/services/avatar-compiled-dispatch.util';
 import {
   assertReplicateVideoReference,
   assertSeedanceReferenceBinding,
@@ -710,6 +711,11 @@ export class VideoGenerationPreparationService {
           'raw_prompt_requested',
         );
       }
+      attachAvatarAudioToCompiledDispatch(
+        params.model,
+        compiled.dispatch,
+        params.createVideoDto.audioUrl,
+      );
       return compiled;
     } catch (error: unknown) {
       if (error instanceof GenerationBriefCompileError) {
