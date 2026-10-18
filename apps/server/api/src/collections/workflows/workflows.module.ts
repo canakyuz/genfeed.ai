@@ -117,6 +117,7 @@ import { ContentEngineModule } from '@api/services/content-engine/content-engine
 import { FilesClientModule } from '@api/services/files-microservice/client/files-client.module';
 import { FileQueueModule } from '@api/services/files-microservice/queue/file-queue.module';
 import { ContentHarnessModule } from '@api/services/harness/harness.module';
+import { MediaPromptEnhancementModule } from '@api/services/harness/media-prompt-enhancement.module';
 import { ElevenLabsModule } from '@api/services/integrations/elevenlabs/elevenlabs.module';
 import { GoogleAdsModule } from '@api/services/integrations/google-ads/google-ads.module';
 import { HeyGenModule } from '@api/services/integrations/heygen/heygen.module';
@@ -200,6 +201,7 @@ import { Module } from '@nestjs/common';
     AutonomousPublishingModule,
     BrandedTextGenerationModule,
     BrandsCoreModule,
+    MediaPromptEnhancementModule,
     CaptionsModule,
     ContentEngineModule,
     ContentHarnessModule,
