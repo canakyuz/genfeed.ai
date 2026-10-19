@@ -303,19 +303,18 @@ export class ModelsController extends BaseCRUDController<
       }
     }
 
-    // Models that cannot be priced (red in the admin pricing panel) are not
-    // offered to anyone but a platform superadmin.
+    // Superadmin-only rows: retired ones dispatch to their successor, and
+    // unpriceable ones (red in the admin pricing panel) cannot be quoted.
     if (!isSuperAdmin) {
-      // Classify exactly the rows this list can return: platform rows plus
-      // the effective read tenant's own.
       const unpriceableIds = await findUnpriceableModelIds(
         this.modelsService.prisma,
         unpriceableModelsScope(tenant.organizationId ?? undefined),
       );
-      if (unpriceableIds.length > 0) {
-        const existingAnd = Array.isArray(where.AND) ? where.AND : [];
-        where.AND = [...existingAnd, { id: { notIn: unpriceableIds } }];
-      }
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { lifecycle: { not: ModelLifecycle.RETIRED } },
+        ...(unpriceableIds.length ? [{ id: { notIn: unpriceableIds } }] : []),
+      ];
     }
 
     if (tenant.organizationId) {
