@@ -9,11 +9,15 @@ import type {
   StudioPlaygroundCapabilities,
 } from '@genfeedai/contracts/interfaces';
 import type { GenerationSetup } from '@genfeedai/contracts/interfaces/studio/generation-setup.interface';
+import { testId } from '@genfeedai/helpers/testing/test-id.helper';
 import type { GenerationSetupTypeOption } from '@genfeedai/props/ui/generation-setup/generation-setup.props';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import GenerationSetupPopover from '@ui/dropdowns/generation-setup/GenerationSetupPopover';
 import { describe, expect, it, vi } from 'vitest';
+
+const BANNER_ID = testId('systembanner');
+const DANCE_ID = testId('systemdance');
 
 vi.mock('next-intl', async () => {
   const { translateFromCatalog } = await import('@ui/tests/next-intl.stub');
@@ -727,6 +731,60 @@ describe('GenerationSetupPopover', () => {
     expect(
       screen.getByRole('button', { name: 'Configure Presets' }),
     ).toBeInTheDocument();
+  });
+
+  it('lists system presets with saved ones, applies them by id, and never offers deleting them', async () => {
+    const user = userEvent.setup();
+    const onApplySystemPreset = vi.fn();
+    const onDeletePreset = vi.fn();
+    renderPopover({
+      onApplySystemPreset,
+      onDeletePreset,
+      presets: [createPreset({ id: 'preset-1', label: 'Studio Look' })],
+      systemPresets: [
+        { id: BANNER_ID, label: 'Banner' },
+        { id: DANCE_ID, label: 'Dance' },
+      ],
+    });
+    await openPopover(user);
+    expect(
+      screen.getByRole('button', { name: 'Configure Presets' }),
+    ).toHaveTextContent('3');
+    await user.click(screen.getByRole('button', { name: 'Configure Presets' }));
+    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Delete preset Banner' }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: 'Apply preset Banner' }),
+    );
+    expect(onApplySystemPreset).toHaveBeenCalledWith(BANNER_ID);
+    expect(onDeletePreset).not.toHaveBeenCalled();
+  });
+
+  it('offers system presets when the organization has no saved presets', async () => {
+    const user = userEvent.setup();
+    renderPopover({
+      presets: [],
+      systemPresets: [{ id: DANCE_ID, label: 'Dance' }],
+    });
+    await openPopover(user);
+    await user.click(screen.getByRole('button', { name: 'Configure Presets' }));
+    expect(
+      screen.getByRole('button', { name: 'Apply preset Dance' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('System')).not.toBeInTheDocument();
+  });
+
+  it('names a pinned system preset in the banner', async () => {
+    const user = userEvent.setup();
+    renderPopover({
+      setup: createSetup({ presetId: DANCE_ID }),
+      systemPresets: [{ id: DANCE_ID, label: 'Dance' }],
+    });
+    await openPopover(user);
+    expect(screen.getByText('Pinned: Dance')).toBeInTheDocument();
   });
 
   it('disables preset deletion while presets are loading and deletes once they load', async () => {
