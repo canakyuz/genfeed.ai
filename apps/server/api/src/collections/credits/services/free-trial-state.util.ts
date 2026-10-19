@@ -15,6 +15,8 @@ type FreeTrialStateClient = Pick<Prisma.TransactionClient, 'organization'>;
 
 /** Every Stripe-backed credit grant namespaces its ledger reference with this. */
 const STRIPE_REFERENCE_PREFIX = 'stripe-';
+/** PAYG grants written before `ActivitySource.PAY_AS_YOU_GO` existed. */
+const LEGACY_PAYG_SOURCE = 'pay-as-you-go';
 
 /**
  * Ledger categories that put credits into a wallet: a one-off grant (`ADD`) or
@@ -47,7 +49,9 @@ export function paidCreditGrantWhere(): Prisma.CreditTransactionWhereInput {
     isDeleted: false,
     OR: [
       { referenceType: { startsWith: STRIPE_REFERENCE_PREFIX } },
-      { source: ActivitySource.PAY_AS_YOU_GO },
+      {
+        source: { in: [ActivitySource.PAY_AS_YOU_GO, LEGACY_PAYG_SOURCE] },
+      },
     ],
   };
 }

@@ -219,7 +219,11 @@ describe('FreeTrialService', () => {
         isDeleted: false,
         OR: [
           { referenceType: { startsWith: 'stripe-' } },
-          { source: ActivitySource.PAY_AS_YOU_GO },
+          {
+            source: {
+              in: [ActivitySource.PAY_AS_YOU_GO, 'pay-as-you-go'],
+            },
+          },
         ],
       });
     });

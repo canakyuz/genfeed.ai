@@ -264,7 +264,9 @@ describe('ReferralsService', () => {
       select: { id: true },
       where: expect.objectContaining({
         organizationId: { in: [ACTOR.organizationId, 'org_linked_2'] },
-        source: ActivitySource.PAY_AS_YOU_GO,
+        source: {
+          in: [ActivitySource.PAY_AS_YOU_GO, 'pay-as-you-go'],
+        },
       }),
     });
     expect(prisma.referral.create).not.toHaveBeenCalled();
