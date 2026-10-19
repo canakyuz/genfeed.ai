@@ -1,0 +1,111 @@
+WITH 
+  group_targets AS (
+    SELECT p."groupId" AS id, p."targetExecutionState" AS state,
+    p."scheduledDate" AS "targetScheduledAt",
+    TRUE AS "isFacetMatch",
+    TRUE AS "isInWindow",
+    FALSE AS "isSearchMatch",
+    (p."targetExecutionState" = $1::text) AS "isPublished"
+    FROM "posts" p
+    WHERE p."organizationId" = $2
+      AND p."groupId" IS NOT NULL
+      AND p."isDeleted" = FALSE
+  AND p."parentId" IS NULL
+  AND btrim(p."credentialId") <> ''
+  AND btrim(p."platform") <> ''
+      
+  ),
+  group_rollup AS (
+    SELECT
+      id,
+      count(*) AS "total",
+      count(*) FILTER (WHERE state = $3::text) AS "publishingCount",
+      count(*) FILTER (WHERE state = $4::text) AS "draftCount",
+      count(*) FILTER (WHERE state = $5::text) AS "publishedCount",
+      count(*) FILTER (WHERE state = $6::text) AS "cancelledCount",
+      count(*) FILTER (WHERE state = $7::text) AS "skippedCount",
+      count(*) FILTER (WHERE state = $8::text) AS "pausedCount",
+      count(*) FILTER (WHERE state = $9::text) AS "failedCount",
+      count(*) FILTER (WHERE state NOT IN ($10::text,$11::text,$12::text,$13::text,$14::text,$15::text,$16::text,$17::text)) AS "invalidCount",
+      min("targetScheduledAt") AS "minTargetScheduledAt",
+      bool_or("isFacetMatch") AS "isFacetMatch",
+      bool_or("isInWindow") AS "isInWindow",
+      bool_or("isSearchMatch") AS "isSearchMatch",
+      bool_or("isPublished") AS "isPublished"
+    FROM group_targets
+    GROUP BY id
+  ),
+  release_rows AS (
+    SELECT
+      g."id" AS id,
+      FALSE AS "isSynthetic",
+      g."createdAt" AS "createdAt",
+      g."updatedAt" AS "updatedAt",
+      LEAST(g."scheduledAt", r."minTargetScheduledAt") AS "effectiveScheduledAt",
+      CASE
+  WHEN r."invalidCount" > 0 THEN $18::text
+  WHEN r."publishingCount" > 0 THEN $19::text
+  WHEN r."draftCount" = r."total" THEN $20::text
+  WHEN r."publishedCount" = r."total" THEN $21::text
+  WHEN r."cancelledCount" + r."skippedCount" = r."total"
+    THEN $22::text
+  WHEN r."pausedCount" = r."total" THEN $23::text
+  WHEN r."publishedCount" > 0 THEN $24::text
+  WHEN r."failedCount" + r."cancelledCount" + r."skippedCount" = r."total"
+    THEN $25::text
+  ELSE $26::text
+END AS status,
+      (TRUE OR r."isInWindow") AS "isInWindow",
+      r."isFacetMatch" AS "isFacetMatch",
+      FALSE AS "isSearchMatch",
+      r."isPublished" AS "isPublished"
+    FROM "post_groups" g
+    JOIN group_rollup r ON r.id = g."id"
+    WHERE g."organizationId" = $27
+      AND g."isDeleted" = FALSE
+      
+      
+    UNION ALL
+    SELECT
+      p."id" AS id,
+      TRUE AS "isSynthetic",
+      p."createdAt" AS "createdAt",
+      p."updatedAt" AS "updatedAt",
+      p."scheduledDate" AS "effectiveScheduledAt",
+      CASE p."targetExecutionState"
+  WHEN $28::text THEN $29::text
+  WHEN $30::text THEN $31::text
+  WHEN $32::text THEN $33::text
+  WHEN $34::text THEN $35::text
+  WHEN $36::text THEN $37::text
+  WHEN $38::text THEN $39::text
+  WHEN $40::text THEN $41::text
+  ELSE $42::text
+END AS status,
+      f."isInWindow" AS "isInWindow",
+      f."isFacetMatch" AS "isFacetMatch",
+      FALSE AS "isSearchMatch",
+      f."isPublished" AS "isPublished"
+    FROM "posts" p
+    CROSS JOIN LATERAL (
+      SELECT p."targetExecutionState" AS state,
+    p."scheduledDate" AS "targetScheduledAt",
+    TRUE AS "isFacetMatch",
+    TRUE AS "isInWindow",
+    FALSE AS "isSearchMatch",
+    (p."targetExecutionState" = $43::text) AS "isPublished"
+    ) f
+    WHERE p."organizationId" = $44
+      AND p."groupId" IS NULL
+      AND p."isDeleted" = FALSE
+  AND p."parentId" IS NULL
+  AND btrim(p."credentialId") <> ''
+  AND btrim(p."platform") <> ''
+      
+      
+  )
+SELECT id, "isSynthetic", count(*) OVER() AS "totalDocs"
+FROM release_rows
+WHERE status IN ($45::text)
+ORDER BY "createdAt" DESC NULLS LAST, id COLLATE "C" ASC
+LIMIT $46 OFFSET $47
