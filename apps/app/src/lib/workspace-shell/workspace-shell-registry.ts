@@ -258,6 +258,7 @@ const BREADCRUMB_LEAF_OVERRIDES = Object.freeze({
 
   '/admin': 'Dashboard',
   '/admin/settings/ai': 'AI',
+  '/admin/administration/users/:id': 'User',
   '/admin/automation/models/:type': ':type Models',
   '/admin/automation/trainings/:id/images': 'Training Images',
   '/admin/automation/trainings/:id/sources': 'Training Sources',
@@ -1201,6 +1202,7 @@ const ADMIN_CONTROL_PLANE_ROUTE_PATTERNS = [
   '/admin/organization',
   '/admin/administration',
   '/admin/administration/users',
+  '/admin/administration/users/:id',
   '/admin/administration/concierge-accounts',
   '/admin/administration/roles',
   '/admin/administration/subscriptions',
