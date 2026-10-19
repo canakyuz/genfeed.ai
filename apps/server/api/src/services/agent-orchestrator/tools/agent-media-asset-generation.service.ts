@@ -7,6 +7,7 @@ import {
   type IAgentGenerationGateway,
 } from '@api/services/agent-orchestrator/gateway/agent-generation-gateway.interface';
 import { AgentGenerationScopeService } from '@api/services/agent-orchestrator/tools/agent-generation-scope.service';
+import { buildIdentityAvatarVideoBody } from '@api/services/agent-orchestrator/tools/agent-identity-avatar-body.util';
 import {
   buildImageGenerationResult,
   buildMediaAssetData,
@@ -752,7 +753,7 @@ export class AgentMediaAssetGenerationService {
     }
     const response = toMediaResponseRecord(
       await this.generationGateway.generateAvatarVideo({
-        body: { text, useIdentity: true },
+        body: buildIdentityAvatarVideoBody(text, params, ctx),
         principal: this.toPrincipal(ctx),
       }),
     );
