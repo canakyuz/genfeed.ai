@@ -46,9 +46,9 @@ export class ReferralsService extends BaseService<ReferralProgram> {
     );
     const pagination = response.data.links?.pagination;
     if (pagination) {
-      PagesService.setCurrentPage(pagination.page);
-      PagesService.setTotalPages(pagination.pages);
-      PagesService.setTotalDocs(pagination.total);
+      PagesService.setCurrentPage(pagination.page ?? 1);
+      PagesService.setTotalPages(pagination.pages ?? 1);
+      PagesService.setTotalDocs(pagination.total ?? 0);
     }
     return deserializeCollection<IReferralAdminReward>(response.data);
   }
