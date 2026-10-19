@@ -1,10 +1,15 @@
-import { ComponentSize } from '@genfeedai/contracts';
+import {
+  ComponentSize,
+  formatPlatformLabel,
+  Platform,
+} from '@genfeedai/contracts';
 import type { IPlatformBadgeConfig } from '@genfeedai/contracts/interfaces/ui/platform-badge-config.interface';
 import { cn } from '@genfeedai/helpers/formatting/cn/cn.util';
 import {
   DevIcon,
   FacebookIcon,
   GhostIcon,
+  GoogleAdsIcon,
   HackerNewsIcon,
   InstagramIcon,
   LinkedinIcon,
@@ -79,6 +84,16 @@ const PLATFORM_CONFIGS: Record<string, IPlatformBadgeConfig> = {
     icon: GhostIcon,
     iconColor: 'text-foreground',
     label: 'Ghost',
+    textColor: 'text-foreground',
+  },
+  google_ads: {
+    bgColor: 'bg-foreground/10',
+    // The mark is multi-coloured, so it sits on a white chip in the solid variant.
+    solidBgColor: 'bg-white',
+    icon: GoogleAdsIcon,
+    iconColor: 'text-foreground',
+    // Resolved from the shared platform labels rather than a new JSX literal.
+    label: formatPlatformLabel(Platform.GOOGLE_ADS) ?? Platform.GOOGLE_ADS,
     textColor: 'text-foreground',
   },
   hacker_news: {
