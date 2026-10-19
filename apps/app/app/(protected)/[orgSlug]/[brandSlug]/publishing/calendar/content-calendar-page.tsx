@@ -261,7 +261,7 @@ export default function ContentCalendarPage({
           campaignId
             ? Promise.resolve([])
             : articlesService.findAll(articleQuery),
-          releaseGroupsService.findAll(releasesQuery, controller.signal),
+          releaseGroupsService.findAllPages(releasesQuery, controller.signal),
           brandId && !campaignId
             ? cadencesService.listSlots(
                 {
