@@ -238,6 +238,45 @@ describe('Studio Voice identity options', () => {
     ).toBe(false);
   });
 
+  it('lists a voice once when the org copy and the catalogue entry share an id', () => {
+    mocks.catalogVoices = [
+      makeCatalogVoice('own-copy', VoiceProvider.ELEVENLABS, 'shared'),
+      makeCatalogVoice('catalogue-copy', VoiceProvider.ELEVENLABS, 'shared'),
+      makeCatalogVoice('other', VoiceProvider.ELEVENLABS),
+    ];
+
+    const { result } = renderHook(() =>
+      useStudioPlaygroundIdentities({ modelKey: 'auto', type: 'voice' }),
+    );
+
+    expect(
+      result.current.voiceOptions
+        .filter(
+          (option) => option.voiceRef?.provider === VoiceProvider.ELEVENLABS,
+        )
+        .map((option) => option.name),
+    ).toEqual(['own-copy', 'other']);
+  });
+
+  it('keeps distinct clones that have no provider-side voice id', () => {
+    mocks.catalogVoices = [
+      makeCatalogVoice('clone-a', VoiceProvider.ELEVENLABS, ''),
+      makeCatalogVoice('clone-b', VoiceProvider.ELEVENLABS, ''),
+    ].map((voice) => ({ ...voice, isCloned: true }) as Voice);
+
+    const { result } = renderHook(() =>
+      useStudioPlaygroundIdentities({ modelKey: 'auto', type: 'voice' }),
+    );
+
+    expect(
+      result.current.voiceOptions
+        .filter(
+          (option) => option.voiceRef?.provider === VoiceProvider.ELEVENLABS,
+        )
+        .map((option) => option.name),
+    ).toEqual(['clone-a', 'clone-b']);
+  });
+
   it('only fetches the HeyGen source the active type needs', () => {
     renderHook(() => useStudioPlaygroundIdentities({ type: 'voice' }));
     expect(mocks.catalogOptions).toHaveBeenLastCalledWith({ isEnabled: false });
