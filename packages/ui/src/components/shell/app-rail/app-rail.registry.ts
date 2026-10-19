@@ -323,7 +323,7 @@ export const ADMIN_RAIL_CATEGORIES: readonly AppRailItemConfig[] = [
     icon: ShieldCheck,
     id: 'admin-administration',
     label: 'adminAdministration.label',
-    route: () => APP_ROUTES.ADMIN.ADMINISTRATION.USERS,
+    route: () => APP_ROUTES.ADMIN.OVERVIEW.ANALYTICS_ORGANIZATIONS,
   },
   {
     activePathRoots: [APP_ROUTES.ADMIN.SETTINGS.ROOT],
