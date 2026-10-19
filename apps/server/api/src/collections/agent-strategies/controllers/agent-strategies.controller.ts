@@ -15,11 +15,13 @@ import { FeatureFlag } from '@api/feature-flag/feature-flag.decorator';
 import { AutoSwagger } from '@api/helpers/decorators/swagger/auto-swagger.decorator';
 import { CurrentUser } from '@api/helpers/decorators/user/current-user.decorator';
 import { parseOptionalBoolean } from '@api/helpers/dto/optional-boolean.transform';
+import { PageQueryDto } from '@api/helpers/dto/page-query.dto';
 import { TenantReadPolicy } from '@api/helpers/interceptors/tenant-context/tenant-read-policy.decorator';
 import { resolveTenantReadScope } from '@api/helpers/interceptors/tenant-context/tenant-read-scope.context';
 import { serializeSingle } from '@api/helpers/utils/response/response.util';
 import { handleQuerySort } from '@api/helpers/utils/sort/sort.util';
 import { BaseCRUDController } from '@api/shared/controllers/base-crud/base-crud.controller';
+import { transformPaginationFormat } from '@api/shared/utils/pagination-transform/pagination-transform.util';
 import type {
   JsonApiCollectionResponse,
   JsonApiSingleResponse,
@@ -309,10 +311,19 @@ export class AgentStrategiesController extends BaseCRUDController<
   @TenantReadPolicy('selected')
   @Get(':id/reports')
   @ApiOperation({ summary: 'List strategy report history' })
-  async listReports(@Param('id') id: string, @CurrentUser() user: User) {
-    return this.agentStrategyReportsService.listByStrategy(
+  async listReports(
+    @Param('id') id: string,
+    @CurrentUser() user: User,
+    @Query() query: PageQueryDto,
+  ) {
+    const reports = await this.agentStrategyReportsService.listByStrategy(
       id,
       resolveTenantReadScope(user).organizationId,
+      { limit: query.limit, page: query.page },
     );
+    return {
+      data: reports.docs,
+      links: transformPaginationFormat(reports).links,
+    };
   }
 }
