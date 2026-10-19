@@ -87,6 +87,7 @@ import {
   type JsonApiResponseDocument,
 } from '@services/core/base.service';
 import { logger } from '@services/core/logger.service';
+import type { AxiosRequestConfig } from 'axios';
 
 // Create a concrete implementation for testing
 class TestModel {
@@ -673,6 +674,33 @@ describe('BaseService', () => {
         signal: undefined,
       });
       expect(result.map((row) => row.id)).toEqual(['1', '2', '3']);
+    });
+
+    it('requests the pages after the first together, keeping page order', async () => {
+      const get = service.getInstanceForTest().get;
+      let inFlight = 0;
+      let peak = 0;
+      get.mockImplementation(
+        async (_url: string, config?: AxiosRequestConfig) => {
+          inFlight += 1;
+          peak = Math.max(peak, inFlight);
+          await Promise.resolve();
+          inFlight -= 1;
+          const page = (config?.params as { page?: number } | undefined)?.page;
+          return {
+            data: {
+              data: [{ id: `p${page}`, name: `row-p${page}` }],
+              links: { pagination: { pages: 4 } },
+            },
+          };
+        },
+      );
+
+      const result = await service.findAllPages();
+
+      expect(get).toHaveBeenCalledTimes(4);
+      expect(peak).toBeGreaterThan(1);
+      expect(result.map((row) => row.id)).toEqual(['p1', 'p2', 'p3', 'p4']);
     });
 
     it('issues a single request when the collection fits one page', async () => {
