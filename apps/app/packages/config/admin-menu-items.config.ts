@@ -14,7 +14,6 @@ import {
   BrainCircuit,
   Building2,
   ChartPie,
-  CircleDollarSign,
   Cpu,
   CreditCard,
   Eye,
@@ -319,15 +318,6 @@ export const ADMIN_MENU_ITEMS: MenuItemConfig[] = [
     matchPaths: [APP_ROUTES.ADMIN.ADMINISTRATION.SUBSCRIPTIONS],
     outline: CreditCard,
     solid: CreditCard,
-  },
-  {
-    group: 'Administration',
-    hrefScope: 'global',
-    href: APP_ROUTES.ADMIN.ADMINISTRATION.CREDIT_USAGE,
-    label: 'Credit Usage',
-    matchPaths: [APP_ROUTES.ADMIN.ADMINISTRATION.CREDIT_USAGE],
-    outline: CircleDollarSign,
-    solid: CircleDollarSign,
   },
   {
     group: 'Administration',

@@ -24,7 +24,6 @@ export const APP_ROUTES = {
     },
     ADMINISTRATION: {
       ANNOUNCEMENTS: '/admin/administration/announcements',
-      CREDIT_USAGE: '/admin/administration/credit-usage',
       REFERRALS: '/admin/administration/referrals',
       ROLES: '/admin/administration/roles',
       SUBSCRIPTIONS: '/admin/administration/subscriptions',

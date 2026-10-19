@@ -1206,7 +1206,6 @@ const ADMIN_CONTROL_PLANE_ROUTE_PATTERNS = [
   '/admin/administration/concierge-accounts',
   '/admin/administration/roles',
   '/admin/administration/subscriptions',
-  '/admin/administration/credit-usage',
   '/admin/economics',
   '/admin/economics/overview',
   '/admin/economics/revenue',
