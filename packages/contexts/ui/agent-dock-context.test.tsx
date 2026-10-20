@@ -1,8 +1,4 @@
 import {
-  AGENT_DOCK_CHROME_VISIBLE,
-  AGENT_DOCK_DEFAULT_HEIGHT,
-  AGENT_DOCK_MAX_HEIGHT,
-  AGENT_DOCK_MIN_HEIGHT,
   AGENT_DOCK_STORAGE_KEY,
   AgentDockProvider,
   useAgentDock,
@@ -55,11 +51,7 @@ function DockProbe({ isAvailable = true }: { readonly isAvailable?: boolean }) {
     setIsAvailable?.(isAvailable);
   }, [isAvailable, setIsAvailable]);
 
-  return (
-    <p data-testid="dock">
-      {dock?.isOpen ? 'open' : 'closed'}:{dock?.height}
-    </p>
-  );
+  return <p data-testid="dock">{dock?.isOpen ? 'open' : 'closed'}</p>;
 }
 
 function renderDock(isAvailable = true) {
@@ -93,16 +85,13 @@ describe('AgentDockProvider', () => {
     vi.restoreAllMocks();
   });
 
-  it('starts closed at the default height', () => {
+  it('starts closed', () => {
     renderDock();
 
-    expect(screen.getByTestId('dock')).toHaveTextContent(
-      `closed:${AGENT_DOCK_DEFAULT_HEIGHT}`,
-    );
+    expect(screen.getByTestId('dock')).toHaveTextContent('closed');
   });
 
-  it('restores a clamped height and stays closed while dock chrome is hidden', () => {
-    expect(AGENT_DOCK_CHROME_VISIBLE).toBe(false);
+  it('restores the open state and persists changes', () => {
     window.localStorage.setItem(
       AGENT_DOCK_STORAGE_KEY,
       JSON.stringify({ height: 9999, isOpen: true }),
@@ -110,21 +99,16 @@ describe('AgentDockProvider', () => {
 
     renderDock();
 
-    expect(screen.getByTestId('dock')).toHaveTextContent(
-      `closed:${AGENT_DOCK_MAX_HEIGHT}`,
-    );
+    expect(screen.getByTestId('dock')).toHaveTextContent('open');
 
     act(() => {
-      latestDock?.setHeight(10);
       latestDock?.close();
     });
 
-    expect(screen.getByTestId('dock')).toHaveTextContent(
-      `closed:${AGENT_DOCK_MIN_HEIGHT}`,
-    );
+    expect(screen.getByTestId('dock')).toHaveTextContent('closed');
     expect(
       JSON.parse(window.localStorage.getItem(AGENT_DOCK_STORAGE_KEY) ?? '{}'),
-    ).toEqual({ height: AGENT_DOCK_MIN_HEIGHT, isOpen: false });
+    ).toEqual({ isOpen: false });
   });
 
   it('ignores unreadable persisted state', () => {
@@ -132,9 +116,7 @@ describe('AgentDockProvider', () => {
 
     renderDock();
 
-    expect(screen.getByTestId('dock')).toHaveTextContent(
-      `closed:${AGENT_DOCK_DEFAULT_HEIGHT}`,
-    );
+    expect(screen.getByTestId('dock')).toHaveTextContent('closed');
   });
 
   it('toggles on ⌘J and Ctrl+J while a shell hosts the dock', () => {
