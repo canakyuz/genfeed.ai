@@ -11,6 +11,7 @@ import { mockActiveSubscription } from '../../fixtures/api-mocks.fixture';
 import { expect, test } from '../../fixtures/auth.fixture';
 import { buildProtectedAppBootstrapPayload } from '../../utils/api-interceptor';
 import { brandPath } from '../../utils/app-chrome';
+import { confirmGenerationSpend } from '../../utils/generation-setup';
 import {
   assertNoErrorBoundaryFallback,
   expectNoErrorOverlay,
@@ -559,6 +560,7 @@ for (const key of [klingKey, veoKey]) {
     });
     await expect(generate).toBeEnabled();
     await generate.dblclick();
+    await confirmGenerationSpend(page);
     await expect.poll(() => fixture.consumes.length).toBe(1);
     const quote = fixture.previews.at(-1);
     expect(quote?.crunControls).toEqual({
@@ -677,6 +679,7 @@ test('expired video admission reports the error and never retries automatically'
       response.status() === 409,
   );
   await generate.click();
+  await confirmGenerationSpend(page);
   await rejection;
   const errorToast = page
     .locator('[data-sonner-toast][data-type="error"]')

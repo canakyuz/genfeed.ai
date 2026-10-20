@@ -150,6 +150,20 @@ vi.mock('@providers/promptbar/promptbar.context', () => ({
   usePromptBarContext: () => ({ presets: presetCatalogMocks.presets }),
 }));
 
+const spendMocks = vi.hoisted(() => ({
+  estimateGenerationCredits: vi.fn(),
+  openConfirm: vi.fn(),
+}));
+vi.mock(
+  '@genfeedai/contexts/providers/global-modals/global-modals.provider',
+  () => ({ useConfirmModal: () => ({ openConfirm: spendMocks.openConfirm }) }),
+);
+vi.mock('@hooks/auth/use-authed-service/use-authed-service', () => ({
+  useAuthedService: () => async () => ({
+    estimateGenerationCredits: spendMocks.estimateGenerationCredits,
+  }),
+}));
+
 // The type bar, the Advanced chips and the reset button all hand their props
 // to one object, so a test reads the setup surface without caring which of the
 // three owns a prop. Chips only mount in Advanced mode.
@@ -377,8 +391,11 @@ describe('StudioPlaygroundComposer', () => {
       isDeleted: false,
       organizationId: null,
       brandId: null,
-      category:
-        preset.type === 'image' ? ModelCategory.IMAGE : ModelCategory.VIDEO,
+      category: {
+        image: ModelCategory.IMAGE,
+        'image-edit': ModelCategory.IMAGE_EDIT,
+        video: ModelCategory.VIDEO,
+      }[preset.type],
       label: preset.label,
       description: preset.description,
       prompt: preset.prompt,
@@ -397,6 +414,8 @@ describe('StudioPlaygroundComposer', () => {
     });
     vi.clearAllMocks();
     avatarEstimateMocks.resolve.mockReset();
+    spendMocks.estimateGenerationCredits.mockReset();
+    spendMocks.openConfirm.mockReset();
   });
 
   it('shows the selected settings in the picker and keeps library access in the context menu', () => {
@@ -1309,6 +1328,36 @@ describe('StudioPlaygroundComposer', () => {
       getDefaultGenerationSetupValues('image'),
     );
     expect(baseProps.onPromptChange).not.toHaveBeenCalled();
+  });
+
+  it('offers edit instructions in the slash menu in edit mode and keeps the generation size (#7494)', () => {
+    const onContextChange = vi.fn();
+    render(
+      <StudioPlaygroundComposer
+        {...baseProps}
+        onPromptCommandContextChange={onContextChange}
+        prompt=""
+        settings={getDefaultStudioPlaygroundSettings('image-edit')}
+        type="image-edit"
+      />,
+    );
+    const context = onContextChange.mock.lastCall?.[0] as PromptCommandContext;
+    expect(context.commands.map((command) => command.label)).toEqual(
+      expect.arrayContaining(['Remove background', 'Enhance photo']),
+    );
+    expect(context.commands.some((command) => command.label === 'Banner')).toBe(
+      false,
+    );
+    const removeBackground = STUDIO_SYSTEM_PRESETS.find(
+      (preset) => preset.key === 'studio-edit-remove-background',
+    );
+    selectSlashPreset(onContextChange, 'Remove background', '');
+    expect(baseProps.onPromptChange).toHaveBeenCalledWith(
+      removeBackground?.prompt,
+    );
+    const applied = storeMocks.applyPreset.mock.lastCall?.[2];
+    expect(applied).toMatchObject({ type: 'image-edit' });
+    expect(applied).not.toHaveProperty('aspectRatio');
   });
 
   it('fills an empty video prompt from a template without choosing a model', () => {
@@ -2393,6 +2442,168 @@ describe('StudioPlaygroundComposer', () => {
       />,
     );
     expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled();
+  });
+
+  describe('spend confirmation', () => {
+    const imagen = {
+      category: ModelCategory.IMAGE,
+      cost: 8,
+      isActive: true,
+      key: MODEL_KEYS.REPLICATE_GOOGLE_IMAGEN_4,
+      label: 'Imagen 4',
+      lifecycle: ModelLifecycle.AVAILABLE,
+      provider: ModelProvider.REPLICATE,
+    };
+
+    it('asks the server for the price and confirms it before anything is submitted', async () => {
+      spendMocks.estimateGenerationCredits.mockResolvedValue({
+        credits: 64,
+        isAvailable: true,
+        modelKey: imagen.key,
+      });
+      render(
+        <StudioPlaygroundComposer
+          {...baseProps}
+          models={[imagen] as never}
+          prompt="A product photo"
+          settings={{ ...settings, modelKey: imagen.key }}
+          type="image"
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+      await waitFor(() => expect(spendMocks.openConfirm).toHaveBeenCalled());
+      expect(spendMocks.estimateGenerationCredits).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: 'image',
+          modelKey: imagen.key,
+        }),
+        expect.any(AbortSignal),
+      );
+      const dialog = spendMocks.openConfirm.mock.calls[0][0];
+      expect(dialog.label).toContain('64');
+      expect(dialog.message).toContain('64');
+      expect(baseProps.onSubmit).not.toHaveBeenCalled();
+
+      act(() => dialog.onConfirm());
+      expect(baseProps.onSubmit).toHaveBeenCalledTimes(1);
+      expect(baseProps.onSubmit).toHaveBeenCalledWith(undefined);
+    });
+
+    it('prices Auto at the model it routes to and submits that model pinned', async () => {
+      spendMocks.estimateGenerationCredits.mockResolvedValue({
+        credits: 8,
+        isAvailable: true,
+        modelKey: imagen.key,
+      });
+      render(
+        <StudioPlaygroundComposer
+          {...baseProps}
+          models={[imagen] as never}
+          prompt="A product photo"
+          settings={{ ...settings, modelKey: AUTO_MODEL_OPTION_VALUE }}
+          type="image"
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+      await waitFor(() => expect(spendMocks.openConfirm).toHaveBeenCalled());
+      expect(spendMocks.estimateGenerationCredits).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          category: 'image',
+          prompt: 'A product photo',
+        }),
+        expect.any(AbortSignal),
+      );
+      expect(spendMocks.estimateGenerationCredits).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ modelKey: imagen.key }),
+        expect.any(AbortSignal),
+      );
+      const dialog = spendMocks.openConfirm.mock.calls[0][0];
+      expect(dialog.message).toContain('Imagen 4');
+
+      act(() => dialog.onConfirm());
+      expect(baseProps.onSubmit).toHaveBeenCalledWith({
+        pinnedModelKey: imagen.key,
+      });
+    });
+
+    it('submits nothing when the server cannot price the generation', async () => {
+      spendMocks.estimateGenerationCredits.mockResolvedValue({
+        credits: null,
+        isAvailable: false,
+        modelKey: null,
+        unavailableReason: 'PRICING_UNRESOLVED',
+      });
+      render(
+        <StudioPlaygroundComposer
+          {...baseProps}
+          models={[imagen] as never}
+          prompt="A product photo"
+          settings={{ ...settings, modelKey: imagen.key }}
+          type="image"
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+      await waitFor(() =>
+        expect(spendMocks.estimateGenerationCredits).toHaveBeenCalled(),
+      );
+      expect(spendMocks.openConfirm).not.toHaveBeenCalled();
+      expect(baseProps.onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('submits nothing when the price request fails', async () => {
+      spendMocks.estimateGenerationCredits.mockRejectedValue(
+        new Error('network'),
+      );
+      render(
+        <StudioPlaygroundComposer
+          {...baseProps}
+          models={[imagen] as never}
+          prompt="A product photo"
+          settings={{ ...settings, modelKey: imagen.key }}
+          type="image"
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+      await waitFor(() =>
+        expect(spendMocks.estimateGenerationCredits).toHaveBeenCalled(),
+      );
+      expect(spendMocks.openConfirm).not.toHaveBeenCalled();
+      expect(baseProps.onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('submits a voice generation directly, since it has no tariff to confirm', () => {
+      render(
+        <StudioPlaygroundComposer
+          {...baseProps}
+          prompt="Read this aloud"
+          settings={{
+            ...settings,
+            voiceId: 'voice-1',
+            voiceRef: {
+              provider: VoiceProvider.ELEVENLABS,
+              voiceId: 'voice-1',
+            } as never,
+          }}
+          type="voice"
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Generate' }));
+
+      expect(spendMocks.estimateGenerationCredits).not.toHaveBeenCalled();
+      expect(spendMocks.openConfirm).not.toHaveBeenCalled();
+      expect(baseProps.onSubmit).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('sends the audio toggle with a video estimate request', () => {
