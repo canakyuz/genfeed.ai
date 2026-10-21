@@ -3,6 +3,7 @@ import { AgentMessagesService } from '@api/collections/agent-messages/services/a
 import { AgentThreadsController } from '@api/collections/agent-threads/controllers/agent-threads.controller';
 import { AgentThreadsService } from '@api/collections/agent-threads/services/agent-threads.service';
 import { UsersService } from '@api/collections/users/services/users.service';
+import { NotFoundException } from '@api/exceptions/not-found.exception';
 import { runWithTenantReadScope } from '@api/helpers/interceptors/tenant-context/tenant-read-scope.context';
 import type { AgentScopeContextService } from '@api/index';
 import { RATE_LIMIT_KEY } from '@api/shared/decorators/rate-limit/rate-limit.decorator';
@@ -585,7 +586,7 @@ describe('AgentThreadsController', () => {
           { mode: 'auto' as never },
           mockUser,
         ),
-      ).rejects.toThrow();
+      ).rejects.toBeInstanceOf(NotFoundException);
       expect(service.findOne).toHaveBeenCalledWith({
         id: 'foreign',
         organizationId: 'org_current',
