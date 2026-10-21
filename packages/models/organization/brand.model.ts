@@ -17,7 +17,13 @@ import { Link } from '@models/social/link.model';
 
 export class Brand extends BaseBrand {
   constructor(partial: Partial<IBrand>) {
-    super(partial);
+    // logoUrl/bannerUrl are derived getters below; the API payload also carries
+    // them, and BaseEntity's Object.assign throws on a getter-only property.
+    const { logoUrl: _logoUrl, ...assignable } = partial as Partial<IBrand> & {
+      bannerUrl?: string;
+    };
+    delete (assignable as { bannerUrl?: string }).bannerUrl;
+    super(assignable);
 
     // AssetScope mirrors the Prisma AssetScope enum 1:1 (SCREAMING_SNAKE,
     // PUBLIC). Normalize with toUpperCase so a stray legacy-lowercase value

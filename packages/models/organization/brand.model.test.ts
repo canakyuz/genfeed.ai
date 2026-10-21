@@ -606,4 +606,21 @@ describe('Brand', () => {
       expect(brand.linkedinDeepLink).toBeUndefined();
     });
   });
+
+  describe('API payload carrying derived URL fields', () => {
+    it('does not throw when the payload includes logoUrl and bannerUrl', () => {
+      const payload = {
+        bannerUrl: 'https://cdn.example.com/banners/banner-1',
+        id: 'brand-123',
+        logo: { cdnUrl: 'https://cdn.example.com/logos/logo-1', id: 'logo-1' },
+        logoUrl: 'https://cdn.example.com/logos/logo-1',
+      } as unknown as Partial<IBrand>;
+
+      const brand = new Brand(payload);
+
+      expect(brand.id).toBe('brand-123');
+      expect(brand.logoUrl).toBe('https://cdn.example.com/logos/logo-1');
+      expect(brand.bannerUrl).toBeUndefined();
+    });
+  });
 });
