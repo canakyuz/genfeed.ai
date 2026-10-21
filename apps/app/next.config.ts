@@ -317,23 +317,6 @@ const config = createAppNextConfig({
       source: `${APP_ROUTES.ADMIN.ROOT}/overview`,
     },
 
-    // Explore was the Store (#5502). Keep bookmarked and shared links working.
-    {
-      destination: createOrganizationAppRoute(
-        ':orgSlug',
-        APP_ROUTES.EXPLORE.ROOT,
-      ),
-      permanent: true,
-      source: createOrganizationAppRoute(':orgSlug', '/store'),
-    },
-    {
-      destination: createOrganizationAppRoute(
-        ':orgSlug',
-        `${APP_ROUTES.EXPLORE.ROOT}/:path*`,
-      ),
-      permanent: true,
-      source: createOrganizationAppRoute(':orgSlug', '/store/:path*'),
-    },
     // The agent onboarding conversation was replaced by the single
     // `/onboarding` page. Keep bookmarked and emailed links working.
     {

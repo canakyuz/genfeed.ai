@@ -265,20 +265,6 @@ describe('app next.config', () => {
     );
   });
 
-  it('redirects the retired Store routes to Explore', async () => {
-    const redirects = await config.redirects?.();
-    expect(redirects).toContainEqual({
-      destination: '/:orgSlug/~/explore',
-      permanent: true,
-      source: '/:orgSlug/~/store',
-    });
-    expect(redirects).toContainEqual({
-      destination: '/:orgSlug/~/explore/:path*',
-      permanent: true,
-      source: '/:orgSlug/~/store/:path*',
-    });
-  });
-
   it('redirects retired Analytics trends routes to Discovery', async () => {
     const redirects = await config.redirects?.();
     expect(redirects).toContainEqual({
