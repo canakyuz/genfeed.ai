@@ -3,7 +3,7 @@
 import { ButtonVariant } from '@genfeedai/contracts';
 
 import type { BrandKitWorkspaceProps } from '@props/pages/brand-kit-workspace.props';
-import Tabs from '@ui/navigation/tabs/Tabs';
+import Container from '@ui/layout/container/Container';
 import { Button } from '@ui/primitives/button';
 import {
   Collapsible,
@@ -62,27 +62,24 @@ export default function BrandKitWorkspace({
     </div>
   ) : null;
   return (
-    <div
-      className="flex min-w-0 flex-col gap-5"
-      data-control-baseline="32px"
-      data-scale-role="product"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <Tabs
-          activeTab={tab}
-          onTabChange={onTabChange}
-          ariaLabel={t('sectionsLabel')}
-          fullWidth={false}
-          className="ml-0"
-          listClassName="ml-0"
-          tabs={[
-            { id: 'overview', label: t('overview') },
-            { id: 'visual', label: t('visual') },
-            { id: 'voice', label: t('voice') },
-            { id: 'strategy', label: t('strategy') },
-          ]}
-        />
-        <div className="flex items-center gap-2">
+    <Container
+      label={t('settingsAriaLabel')}
+      titleVisibility="sr-only"
+      moduleChrome
+      headerTabs={{
+        activeTab: tab,
+        onTabChange,
+        ariaLabel: t('sectionsLabel'),
+        fullWidth: false,
+        tabs: [
+          { id: 'overview', label: t('overview') },
+          { id: 'visual', label: t('visual') },
+          { id: 'voice', label: t('voice') },
+          { id: 'strategy', label: t('strategy') },
+        ],
+      }}
+      right={
+        <>
           <Button
             variant={ButtonVariant.SECONDARY}
             onClick={onScan}
@@ -113,67 +110,76 @@ export default function BrandKitWorkspace({
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={() => setIsReviewOpen(true)}>{t('review')}</Button>
-        </div>
-      </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="min-w-0 space-y-4">
-          {tab === 'overview' ? (
-            overview
-          ) : tab === 'voice' || tab === 'strategy' ? (
-            writingEditor
-          ) : isLoading ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              {t('loading')}
-            </p>
-          ) : (
-            editor || (
-              <p className="text-sm text-muted-foreground">{t('startDraft')}</p>
-            )
-          )}
-          {tab === 'visual' && (
-            <Collapsible>
-              <CollapsibleTrigger>{t('assets')}</CollapsibleTrigger>
-              <CollapsibleContent className="space-y-3">
-                {assets}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-          {(tab === 'voice' || tab === 'strategy') && (
-            <Collapsible>
-              <CollapsibleTrigger>{t('snapshot')}</CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4">
-                <p className="text-xs text-muted-foreground">
-                  {t('snapshotHelp')}
+        </>
+      }
+    >
+      <div
+        className="flex min-w-0 flex-col gap-5"
+        data-control-baseline="32px"
+        data-scale-role="product"
+      >
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="min-w-0 space-y-4">
+            {tab === 'overview' ? (
+              overview
+            ) : tab === 'voice' || tab === 'strategy' ? (
+              writingEditor
+            ) : isLoading ? (
+              <p role="status" className="text-sm text-muted-foreground">
+                {t('loading')}
+              </p>
+            ) : (
+              editor || (
+                <p className="text-sm text-muted-foreground">
+                  {t('startDraft')}
                 </p>
-                {editor}
-                {revisionStatus}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-          {tab === 'voice' || tab === 'strategy' ? null : revisionStatus}
+              )
+            )}
+            {tab === 'visual' && (
+              <Collapsible>
+                <CollapsibleTrigger>{t('assets')}</CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3">
+                  {assets}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            {(tab === 'voice' || tab === 'strategy') && (
+              <Collapsible>
+                <CollapsibleTrigger>{t('snapshot')}</CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    {t('snapshotHelp')}
+                  </p>
+                  {editor}
+                  {revisionStatus}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+            {tab === 'voice' || tab === 'strategy' ? null : revisionStatus}
+          </div>
+          <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
+            <BrandKitLocalPreview
+              key={brand.id}
+              brand={brand}
+              content={content}
+              approvedContent={approvedContent}
+            />
+          </div>
         </div>
-        <div className="min-w-0 xl:sticky xl:top-4 xl:self-start">
-          <BrandKitLocalPreview
-            key={brand.id}
-            brand={brand}
-            content={content}
-            approvedContent={approvedContent}
-          />
-        </div>
+        <Sheet open={isReviewOpen} onOpenChange={setIsReviewOpen}>
+          <SheetContent className="w-full overflow-y-auto shadow-ambient-lg outline-none sm:max-w-2xl">
+            <SheetHeader>
+              <SheetTitle>{t('review')}</SheetTitle>
+            </SheetHeader>
+            <div className="pt-4">{review}</div>
+          </SheetContent>
+        </Sheet>
       </div>
-      <Sheet open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-        <SheetContent className="w-full overflow-y-auto shadow-ambient-lg outline-none sm:max-w-2xl">
-          <SheetHeader>
-            <SheetTitle>{t('review')}</SheetTitle>
-          </SheetHeader>
-          <div className="pt-4">{review}</div>
-        </SheetContent>
-      </Sheet>
-    </div>
+    </Container>
   );
 }
