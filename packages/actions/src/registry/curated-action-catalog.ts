@@ -73,11 +73,6 @@ export const CURATED_ACTION_CATALOG = [
   },
   { name: 'compare_meta_campaigns', surfaces: ['mcp'], toolset: 'ads' },
   {
-    name: 'complete_brand_onboarding_step',
-    surfaces: ['agent'],
-    toolset: 'onboarding',
-  },
-  {
     name: 'complete_media_upload',
     surfaces: ['agent', 'mcp'],
     toolset: 'content',

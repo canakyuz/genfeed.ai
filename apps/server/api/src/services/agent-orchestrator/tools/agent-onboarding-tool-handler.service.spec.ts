@@ -916,7 +916,7 @@ describe('Agent onboarding create_brand identity', () => {
 });
 
 describe('completeOnboarding funnel capture (genfeedai/genfeed.ai#4969, #5311)', () => {
-  it('rejects Expert completion before handoff without any completion writes', async () => {
+  it('rejects Expert completion before the Expert steps are done without any completion writes', async () => {
     const { handler, organizationsService, usersService } = createHandler();
     organizationsService.findOne.mockResolvedValue({ accountType: 'EXPERT' });
     usersService.findOne.mockResolvedValue({
@@ -926,7 +926,7 @@ describe('completeOnboarding funnel capture (genfeedai/genfeed.ai#4969, #5311)',
     const result = await handler.completeOnboarding(CONTEXT);
     expect(result).toMatchObject({
       success: false,
-      error: expect.stringContaining('complete_brand_onboarding_step'),
+      error: expect.stringContaining('Expert setup is incomplete'),
     });
     expect(organizationsService.patch).not.toHaveBeenCalled();
     expect(usersService.patchAll).not.toHaveBeenCalled();

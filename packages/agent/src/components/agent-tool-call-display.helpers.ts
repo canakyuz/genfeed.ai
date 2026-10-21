@@ -14,7 +14,6 @@ export const TOOL_LABELS: Record<string, string> = {
   complete_outreach_sequence: 'Complete outreach sequence',
   add_first_comment: 'Add First Comment',
   add_thread_posts: 'Add Thread Posts',
-  complete_brand_onboarding_step: 'Complete Brand Setup',
   complete_onboarding: 'Complete Onboarding',
   connect_social_account: 'Connect Account',
   create_brand: 'Create Brand',

@@ -116,10 +116,7 @@ export const CLOUD_ONLY_TOOLS: CuratedActionName[] = [
   'present_payment_options',
 ];
 
-export const ONBOARDING_ONLY_TOOLS: CuratedActionName[] = [
-  'complete_brand_onboarding_step',
-  'scan_brand_url',
-];
+export const ONBOARDING_ONLY_TOOLS: CuratedActionName[] = ['scan_brand_url'];
 
 export function resolveBlockedTools(): CuratedActionName[] | undefined {
   const blocked = [...ONBOARDING_ONLY_TOOLS];

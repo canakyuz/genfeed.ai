@@ -33,10 +33,7 @@ describe('self-hosted tool boundary', () => {
 
     const tools = resolveToolNames();
 
-    expect(resolveBlockedTools()).toEqual([
-      'complete_brand_onboarding_step',
-      'scan_brand_url',
-    ]);
+    expect(resolveBlockedTools()).toEqual(['scan_brand_url']);
     expect(tools).toContain('present_payment_options');
     expect(tools).toContain('generate_monthly_content');
   });
@@ -45,9 +42,6 @@ describe('self-hosted tool boundary', () => {
     for (const cloud of [undefined, '1']) {
       vi.stubEnv('GENFEED_CLOUD', cloud);
       expect(resolveToolNames()).not.toContain('scan_brand_url');
-      expect(resolveToolNames()).not.toContain(
-        'complete_brand_onboarding_step',
-      );
       // In-flow brand context answers save through the same tool; its
       // handler accepts only fields the conversation asked on a card.
       expect(resolveToolNames()).toContain('save_onboarding_answers');
