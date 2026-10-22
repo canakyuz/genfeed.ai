@@ -169,9 +169,6 @@ function OnboardingPrototype() {
   const phaseIndex = { brand: 0, generating: 1, review: 2, connect: 3 }[
     snapshot.phase
   ];
-  const kept = Object.values(snapshot.verdicts).filter(
-    (value) => value === 'keep',
-  ).length;
   useEffect(() => {
     if (snapshot.phase) contentRef.current?.scrollTo({ top: 0 });
   }, [snapshot.phase]);
@@ -301,7 +298,6 @@ function OnboardingPrototype() {
                 <Button
                   size={ButtonSize.SM}
                   data-action="continue"
-                  isDisabled={snapshot.phase === 'review' && kept === 0}
                   onClick={() => {
                     if (snapshot.phase === 'brand') {
                       setSnapshot((current) => ({
