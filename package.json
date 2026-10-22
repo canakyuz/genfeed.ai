@@ -198,7 +198,8 @@
     "eval:content:smoke": "bun scripts/content-eval/smoke/run-smoke.ts",
     "test:content-eval": "vitest run --config scripts/content-eval/vitest.config.ts",
     "test:agent-eval": "vitest run --config scripts/agent-eval/vitest.config.ts",
-    "verify:agent-smoke-evidence": "bun run scripts/agent-eval/verify-live-evidence.ts"
+    "verify:agent-smoke-evidence": "bun run scripts/agent-eval/verify-live-evidence.ts",
+    "prototype:onboarding": "bun run scripts/dev/run-portless.ts app -- bun apps/app/app/\\(onboarding\\)/onboarding/\\(wizard\\)/brand/_prototype/serve.mjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
