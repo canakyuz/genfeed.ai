@@ -12,7 +12,11 @@ import type {
   PluginsGalleryPrototypeProps,
   PrototypeAppProps,
 } from '@genfeedai/props/plugins/plugins-gallery-prototype.props';
+import Card from '@ui/card/Card';
+import CollectionItemActions from '@ui/collection/CollectionItemActions';
 import AdminPageShell from '@ui/layout/admin-page-shell/AdminPageShell';
+import ListRow from '@ui/lists/list-row/ListRow';
+import Tabs from '@ui/navigation/tabs/Tabs';
 import { Button } from '@ui/primitives/button';
 import {
   Dialog,
@@ -20,13 +24,14 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@ui/primitives/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@ui/primitives/dropdown-menu';
 import FormSearchbar from '@ui/primitives/searchbar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@ui/primitives/select';
 import {
   ArrowLeft,
   ArrowRight,
@@ -34,7 +39,6 @@ import {
   Check,
   ChevronRight,
   LockKeyhole,
-  MoreHorizontal,
   Puzzle,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -145,54 +149,59 @@ function Actions({
 }: PrototypeAppProps) {
   const locked = Boolean(restriction(app));
   return (
-    <div className="flex items-center gap-1">
-      <Button
-        size={ButtonSize.SM}
-        variant={canOpen(app) ? ButtonVariant.SECONDARY : ButtonVariant.DEFAULT}
-        isDisabled={locked}
-        aria-label={`${canOpen(app) ? 'Open' : 'Add'} ${app.label}`}
-        onClick={() => onAction(app)}
-      >
-        {canOpen(app) ? 'Open' : 'Add'}
-        {canOpen(app) ? (
-          <ArrowUpRight className="ml-1 size-3" aria-hidden />
-        ) : null}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            withWrapper={false}
-            size={ButtonSize.ICON}
-            variant={ButtonVariant.GHOST}
-            ariaLabel={`${app.label} menu`}
-          >
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => onDetails(app)}>
-            View details
-          </DropdownMenuItem>
+    <CollectionItemActions
+      primary={
+        <Button
+          size={ButtonSize.SM}
+          variant={
+            canOpen(app) ? ButtonVariant.SECONDARY : ButtonVariant.DEFAULT
+          }
+          isDisabled={locked}
+          aria-label={`${canOpen(app) ? 'Open' : 'Add'} ${app.label}`}
+          onClick={() => onAction(app)}
+        >
+          {canOpen(app) ? 'Open' : 'Add'}
           {canOpen(app) ? (
-            <>
-              <DropdownMenuItem onSelect={() => onPreference(app, 'pin')}>
-                {app.state === 'pinned' ? 'Unpin' : 'Pin to navigation'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => onPreference(app, 'remove')}>
-                Remove from my apps
-              </DropdownMenuItem>
-            </>
+            <ArrowUpRight className="ml-1 size-3" aria-hidden />
           ) : null}
-          {locked ? (
-            <DropdownMenuItem onSelect={() => onAction(app)}>
-              {app.state === 'subscription-required'
-                ? 'View subscription requirement'
-                : 'Why is this unavailable?'}
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+        </Button>
+      }
+      overflowLabel={`${app.label} menu`}
+      overflow={[
+        {
+          id: 'details',
+          label: 'View details',
+          onSelect: () => onDetails(app),
+        },
+        ...(canOpen(app)
+          ? [
+              {
+                id: 'pin',
+                label: app.state === 'pinned' ? 'Unpin' : 'Pin to navigation',
+                onSelect: () => onPreference(app, 'pin'),
+              },
+              {
+                id: 'remove',
+                label: 'Remove from my apps',
+                onSelect: () => onPreference(app, 'remove'),
+                isDestructive: true,
+              },
+            ]
+          : []),
+        ...(locked
+          ? [
+              {
+                id: 'restriction',
+                label:
+                  app.state === 'subscription-required'
+                    ? 'View subscription requirement'
+                    : 'Why is this unavailable?',
+                onSelect: () => onAction(app),
+              },
+            ]
+          : []),
+      ]}
+    />
   );
 }
 function AppCard(props: PrototypeAppProps) {
@@ -332,47 +341,48 @@ function VariantC({
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
       <div
-        className="max-h-60 space-y-1 overflow-y-auto lg:sticky lg:top-4 lg:max-h-none"
+        className="max-h-60 overflow-y-auto rounded-card border border-border lg:sticky lg:top-4 lg:max-h-none"
         role="group"
         aria-label="Choose an app"
       >
         {apps.map((item) => (
-          <Button
+          <ListRow
             key={item.appId}
-            withWrapper={false}
-            variant={ButtonVariant.UNSTYLED}
+            density="compact"
+            ariaLabel={`Select ${item.label}${item.appId === app.appId ? ', selected' : ''}`}
             onClick={() => setSelectedId(item.appId)}
-            aria-pressed={item.appId === app.appId}
-            className={cn(
-              'flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-muted',
-              item.appId === app.appId && 'bg-muted',
-            )}
-          >
-            <item.icon
-              className="size-5 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium">{item.label}</span>
-              <State app={item} />
-            </span>
-            <ChevronRight className="size-4 shrink-0" aria-hidden />
-          </Button>
+            leading={
+              <item.icon
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
+            }
+            title={item.label}
+            meta={<State app={item} />}
+            trailing={
+              <ChevronRight
+                className="size-4 text-muted-foreground"
+                aria-hidden
+              />
+            }
+            className={cn(item.appId === app.appId && 'bg-muted')}
+          />
         ))}
       </div>
-      <article
-        className="min-w-0 overflow-hidden rounded-lg border border-border bg-card"
+      <Card
+        className="min-w-0"
+        bodyClassName="gap-0 p-0"
         data-testid={`prototype-app-${app.appId}`}
       >
-        <Preview app={app} />
-        <div className="space-y-5 p-5 sm:p-6">
+        <Preview app={app} className="rounded-t-card" />
+        <div className="space-y-4 p-4">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="mb-2 text-xs text-muted-foreground">
                 {CATEGORY_NAMES[PLUGIN_APP_CATALOG[app.appId].category]}
               </p>
-              <h2 className="text-2xl font-semibold">{app.label}</h2>
-              <p className="mt-2 text-base text-muted-foreground">
+              <h2 className="text-xl font-semibold">{app.label}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
                 {app.description}
               </p>
             </div>
@@ -401,7 +411,7 @@ function VariantC({
             View app details <ArrowRight className="ml-2 size-3" />
           </Button>
         </div>
-      </article>
+      </Card>
     </div>
   );
 }
@@ -444,7 +454,7 @@ export default function PluginsGalleryPrototype({
         event.ctrlKey ||
         (event.target instanceof HTMLElement &&
           event.target.closest(
-            'input,textarea,select,[contenteditable], [role="dialog"], [role="menu"]',
+            'input,textarea,select,[contenteditable], [role="dialog"], [role="menu"], [role="tablist"], [role="listbox"]',
           ))
       )
         return;
@@ -525,25 +535,33 @@ export default function PluginsGalleryPrototype({
           />
         }
         filters={
-          <div className="flex flex-wrap items-center gap-1">
-            {['all', 'installed', 'available', 'restricted'].map((value) => (
-              <Button
-                key={value}
-                size={ButtonSize.SM}
-                variant={
-                  status === value
-                    ? ButtonVariant.SECONDARY
-                    : ButtonVariant.GHOST
-                }
-                aria-pressed={status === value}
-                onClick={() => setStatus(value)}
-              >
-                {value === 'all'
-                  ? 'All apps'
-                  : value[0]?.toUpperCase() + value.slice(1)}
-              </Button>
-            ))}
-          </div>
+          <>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger aria-label="App category" className="h-8 w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {PLUGIN_CATEGORY_IDS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {CATEGORY_NAMES[value]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Tabs
+              activeTab={status}
+              onTabChange={setStatus}
+              ariaLabel="App status"
+              fullWidth={false}
+              items={[
+                { id: 'all', label: 'All apps' },
+                { id: 'installed', label: 'Installed' },
+                { id: 'available', label: 'Available' },
+                { id: 'restricted', label: 'Restricted' },
+              ]}
+            />
+          </>
         }
       >
         <div
@@ -551,45 +569,6 @@ export default function PluginsGalleryPrototype({
           data-testid="plugins-prototype"
           data-variant={variant}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Your organization’s apps for creating, publishing and
-                automating.
-              </p>
-            </div>
-            <span className="text-xs text-muted-foreground" aria-live="polite">
-              {visible.length} of {apps.length} apps ·{' '}
-              {resolved.filter(canOpen).length} installed
-            </span>
-          </div>
-          <div
-            className="flex flex-wrap items-center gap-1"
-            role="group"
-            aria-label="App category"
-          >
-            {['all', ...PLUGIN_CATEGORY_IDS].map((value) => (
-              <Button
-                key={value}
-                size={ButtonSize.SM}
-                variant={
-                  category === value
-                    ? ButtonVariant.SECONDARY
-                    : ButtonVariant.GHOST
-                }
-                aria-pressed={category === value}
-                onClick={() => setCategory(value)}
-              >
-                {value === 'all'
-                  ? 'All categories'
-                  : value === 'create'
-                    ? 'Create'
-                    : value === 'publish'
-                      ? 'Publish'
-                      : 'Automate'}
-              </Button>
-            ))}
-          </div>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">
               Loading your organization’s catalog…
@@ -693,7 +672,8 @@ export default function PluginsGalleryPrototype({
             className="mt-1 border-t border-current/20 px-2 pt-2 text-center text-[10px] leading-4 opacity-70"
             role="status"
           >
-            {notice}
+            {visible.length} of {apps.length} apps ·{' '}
+            {resolved.filter(canOpen).length} installed · {notice}
           </p>
         </aside>
       ) : null}
