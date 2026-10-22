@@ -6,6 +6,7 @@ import {
   APP_ROUTES,
   createPublishingCampaignRoute,
 } from '@genfeedai/contracts/constants';
+import type { CampaignFormPageProps } from '@genfeedai/props/content/campaign.props';
 import { useAuthedService } from '@hooks/auth/use-authed-service/use-authed-service';
 import { useCampaign } from '@hooks/data/campaigns/use-campaign';
 import {
@@ -15,6 +16,7 @@ import {
 import { useOrgUrl } from '@hooks/navigation/use-org-url';
 import { toDateInputValue } from '@pages/campaigns/campaigns-status';
 import CampaignUnavailableState from '@pages/campaigns/detail/CampaignUnavailableState';
+import CampaignCreativeContextFields from '@pages/campaigns/form/CampaignCreativeContextFields';
 import { CampaignsService } from '@services/content/campaigns.service';
 import { logger } from '@services/core/logger.service';
 import { NotificationsService } from '@services/core/notifications.service';
@@ -40,6 +42,10 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useState } from 'react';
 
 interface CampaignFormState {
+  assetIds: string[];
+  audience: string;
+  tone: string;
+  creativeDirection: string;
   brandId: string;
   brief: string;
   endDate: string;
@@ -50,6 +56,10 @@ interface CampaignFormState {
 
 function emptyForm(brandId: string): CampaignFormState {
   return {
+    assetIds: [],
+    audience: '',
+    tone: '',
+    creativeDirection: '',
     brandId,
     brief: '',
     endDate: '',
@@ -61,9 +71,7 @@ function emptyForm(brandId: string): CampaignFormState {
 
 export default function CampaignFormPage({
   campaignId,
-}: {
-  campaignId?: string;
-}) {
+}: CampaignFormPageProps) {
   const translate = useTranslations('pages.publishing.campaigns');
   const collectionScope = useCollectionScope();
   const { brands } = useBrand();
@@ -84,6 +92,9 @@ export default function CampaignFormPage({
     emptyForm(defaultBrandId),
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [createRequestKey, setCreateRequestKey] = useState(() =>
+    crypto.randomUUID(),
+  );
   const canPickBrand = collectionScope.pageScope === 'org' && !isEdit;
 
   useEffect(() => {
@@ -91,6 +102,10 @@ export default function CampaignFormPage({
       return;
     }
     setForm({
+      assetIds: campaign.assetIds ?? [],
+      audience: campaign.audience ?? '',
+      tone: campaign.tone ?? '',
+      creativeDirection: campaign.creativeDirection ?? '',
       brandId: campaign.brandId,
       brief: campaign.brief ?? '',
       endDate: toDateInputValue(campaign.endDate),
@@ -133,13 +148,17 @@ export default function CampaignFormPage({
     try {
       const service = await getService();
       const payload = {
+        assetIds: form.assetIds,
+        audience: form.audience.trim() || null,
+        tone: form.tone.trim() || null,
+        creativeDirection: form.creativeDirection.trim() || null,
         brandId: form.brandId,
         brief: form.brief.trim() || null,
         endDate: form.endDate || null,
         name: form.name.trim(),
         objective: form.objective.trim() || null,
         startDate: form.startDate || null,
-        ...(isEdit ? {} : { idempotencyKey: crypto.randomUUID() }),
+        ...(isEdit ? {} : { idempotencyKey: createRequestKey }),
       };
       const saved =
         isEdit && campaignId
@@ -181,9 +200,10 @@ export default function CampaignFormPage({
           <div className="flex flex-col gap-2">
             <Label htmlFor="campaign-brand">{translate('columns.brand')}</Label>
             <Select
-              onValueChange={(brandId) =>
-                setForm((current) => ({ ...current, brandId }))
-              }
+              onValueChange={(brandId) => {
+                setCreateRequestKey(crypto.randomUUID());
+                setForm((current) => ({ ...current, brandId, assetIds: [] }));
+              }}
               value={form.brandId}
             >
               <SelectTrigger id="campaign-brand">
@@ -242,6 +262,27 @@ export default function CampaignFormPage({
             value={form.brief}
           />
         </div>
+
+        <CampaignCreativeContextFields
+          brandId={form.brandId}
+          value={form}
+          onChange={(patch) =>
+            setForm((current) => ({
+              ...current,
+              ...patch,
+              audience:
+                patch.audience === undefined
+                  ? current.audience
+                  : (patch.audience ?? ''),
+              tone:
+                patch.tone === undefined ? current.tone : (patch.tone ?? ''),
+              creativeDirection:
+                patch.creativeDirection === undefined
+                  ? current.creativeDirection
+                  : (patch.creativeDirection ?? ''),
+            }))
+          }
+        />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">

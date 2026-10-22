@@ -415,6 +415,7 @@ export const CURATED_ACTION_CATALOG = [
     surfaces: ['agent', 'mcp'],
     toolset: 'social-inbox',
   },
+  { name: 'manage_campaign', surfaces: ['mcp'], toolset: 'content' },
   { name: 'manage_livestream_bot', surfaces: ['agent'], toolset: 'engagement' },
   {
     name: 'mark_social_conversation_resolved',
