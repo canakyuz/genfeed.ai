@@ -12,6 +12,7 @@ import {
   XTwitterIcon,
 } from '@genfeedai/helpers/ui/icons/brands';
 import Card from '@ui/card/Card';
+import OrderedMasonry from '@ui/display/masonry/OrderedMasonry';
 import VideoPlayer from '@ui/display/video-player/VideoPlayer';
 import DesktopSidebar from '@ui/layouts/app/DesktopSidebar';
 import PlatformPreview, {
@@ -245,6 +246,21 @@ function OnboardingPrototype() {
                 data-step={phaseIndex}
               >
                 <OnboardingProgress
+                  orientation="vertical"
+                  onStepChange={(step) =>
+                    setSnapshot((current) => ({
+                      ...current,
+                      phase:
+                        step === 0
+                          ? 'brand'
+                          : step === 1 && current.video === 'running'
+                            ? 'generating'
+                            : step === 2
+                              ? 'review'
+                              : 'connect',
+                    }))
+                  }
+                  disabledSteps={snapshot.video === 'running' ? [] : [1]}
                   currentStep={phaseIndex}
                   totalSteps={steps.length}
                   stepLabels={steps}
@@ -261,6 +277,8 @@ function OnboardingPrototype() {
               {snapshot.phase !== 'brand' && (
                 <Button
                   className="mr-auto"
+                  withWrapper={false}
+                  ariaLabel="Back"
                   size={ButtonSize.SM}
                   variant={ButtonVariant.GHOST}
                   onClick={() =>
@@ -271,7 +289,6 @@ function OnboardingPrototype() {
                   }
                 >
                   <ArrowLeft className="size-4" />
-                  Back
                 </Button>
               )}
               <Button
@@ -317,7 +334,12 @@ function OnboardingPrototype() {
               aria-label="Onboarding content"
             >
               {snapshot.phase === 'review' && (
-                <div className="prototype-gallery">
+                <OrderedMasonry
+                  className="prototype-gallery"
+                  minColumnWidth={420}
+                  maxColumns={2}
+                  gap={24}
+                >
                   {drafts.map((draft) => {
                     const id = draft.id || draft.platform;
                     const isRejected = snapshot.verdicts[id] === 'skip';
@@ -337,21 +359,6 @@ function OnboardingPrototype() {
                               <p className="text-sm font-semibold">
                                 Video failed
                               </p>
-                              <Button
-                                className="mt-4"
-                                variant={ButtonVariant.SECONDARY}
-                                label="Retry · 4 GEN"
-                                onClick={() =>
-                                  setSnapshot((current) => ({
-                                    ...current,
-                                    phase: 'generating',
-                                    video: 'running',
-                                    generationRequests:
-                                      current.generationRequests + 1,
-                                    creditsSpent: current.creditsSpent + 4,
-                                  }))
-                                }
-                              />
                             </div>
                           ) : (
                             <PlatformPreview
@@ -378,7 +385,7 @@ function OnboardingPrototype() {
                                   <img
                                     src={item.url}
                                     alt={item.alt || 'Brand image'}
-                                    className="absolute inset-0 size-full object-contain"
+                                    className="absolute inset-0 size-full object-cover"
                                   />
                                 )
                               }
@@ -440,7 +447,7 @@ function OnboardingPrototype() {
                       </div>
                     );
                   })}
-                </div>
+                </OrderedMasonry>
               )}
               {snapshot.phase === 'brand' && (
                 <form

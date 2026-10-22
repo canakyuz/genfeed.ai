@@ -74,12 +74,8 @@ body {
   padding: 20px 28px 84px;
 }
 .prototype-gallery {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   max-width: 1040px;
   margin: 0 auto;
-  gap: 28px;
-  align-items: start;
 }
 .prototype-card-content {
   transition: opacity 150ms ease;
@@ -126,58 +122,7 @@ body {
   font-size: 12px;
   z-index: 100;
 }
-/* The existing OnboardingProgress is placed vertically inside the existing DesktopSidebar. */
-.prototype-vertical-progress > div > div:last-child {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-}
-.prototype-vertical-progress > div > div:last-child > div {
-  height: 36px;
-  padding: 6px 10px;
-  border-radius: 4px;
-  gap: 10px;
-}
-.prototype-vertical-progress > div > div:last-child > div > div {
-  width: 20px;
-  height: 20px;
-  font-size: 10px;
-}
-.prototype-vertical-progress > div > div:last-child > div > span {
-  font-size: 12px;
-}
-.prototype-vertical-progress > div > div:first-child {
-  height: 2px;
-  margin: 4px 10px 16px;
-  width: calc(100% - 20px);
-}
-.prototype-vertical-progress[data-step="0"]
-  > div
-  > div:last-child
-  > div:nth-child(1),
-.prototype-vertical-progress[data-step="1"]
-  > div
-  > div:last-child
-  > div:nth-child(2),
-.prototype-vertical-progress[data-step="2"]
-  > div
-  > div:last-child
-  > div:nth-child(3),
-.prototype-vertical-progress[data-step="3"]
-  > div
-  > div:last-child
-  > div:nth-child(4) {
-  background: hsl(var(--foreground) / 0.06);
-}
 @media (max-width: 1100px) {
-  .prototype-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .prototype-gallery > div:nth-child(n) {
-    grid-column: auto;
-    grid-row: auto;
-  }
   .prototype-main {
     padding: 20px 22px 84px;
   }
@@ -227,9 +172,6 @@ body {
   }
 }
 @media (max-width: 900px) {
-  .prototype-gallery {
-    grid-template-columns: 1fr;
-  }
   .prototype-topbar {
     gap: 10px;
   }
