@@ -38,7 +38,7 @@ const flags = {
 const resource = (type: string, attributes: unknown, id: string) => ({
   data: { type, id, attributes },
 });
-Bun.serve({
+const server = Bun.serve({
   // biome-ignore lint/suspicious/noUndeclaredEnvVars: Portless injects PORT outside Turbo.
   port: Number(process.env.PORT),
   hostname: '127.0.0.1',
@@ -115,3 +115,5 @@ Bun.serve({
     });
   },
 });
+
+export default server;
