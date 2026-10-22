@@ -29,7 +29,7 @@ The package includes the React bundle, shared CSS, font, image, logo, and playab
 
 ## Try
 
-Keep a draft, edit its caption, then refresh. The same run ID, choices, caption, results, and demo credit total return. **Scenarios** offers brand input, generating, review, video failure, and reset. A refresh during generation resumes the same simulated job. An explicit failed-video retry increments only that retry. Account connection is optional and simulated.
+Keep or reject a draft, then refresh. The same run ID, choices, results, and demo credit total return. Content editing happens after onboarding. **Scenarios** offers brand input, generating, review, video failure, and reset. A refresh during generation resumes the same simulated job. An explicit failed-video retry increments only that retry. Account connection is optional and simulated.
 
 All media, credit amounts, job progress, and account connections are fixtures. No API, generation, billing, publishing, or connection calls are made. Persistence is deliberately being explored with the isolated browser key `genfeed-onboarding-PROTOTYPE-wipe-me-shared-v1`; Reset demo touches only that fixture. This is not production persistence or a decision about production generation budgets.
 
@@ -41,6 +41,8 @@ Use the same shared React components in production, with the authenticated shell
 
 ## Grouped preview and review feedback
 
-The existing PlatformPreview now offers an opt-in account header: one avatar/name/handle group with its platform badge, without a repeated platform heading and author block. Existing callers retain their default presentation. All four onboarding cards share one desktop row; narrower screens use two or one column. Not for me dims the preview to 35% opacity and shows an explicit Undo action. The rejected choice survives refresh; Undo restores the normal preview.
+The existing PlatformPreview now offers an opt-in account header: one avatar/name/handle group with its platform badge, without a repeated platform heading and author block. Existing callers retain their default presentation. Onboarding previews use two wider desktop columns with a single column on narrower screens. Not for me dims the preview to 35% opacity and shows an explicit Undo action. The rejected choice survives refresh; Undo restores the normal preview.
 
 The sub-topbar owns the primary action across steps. The footer, repeated saved/restored notices, collection metadata, sidebar reminders, and explanatory demo copy are removed. Skip onboarding opens the shared dialog primitives with Keep reviewing as the primary action.
+
+Review is read-only. Back returns to the previous screen without regenerating content. Connections compose the shared Card and brand icons. Brand entry uses the shared single-line Input with an inline submit; website/social URLs in this portable file are fixtures, not live imports.

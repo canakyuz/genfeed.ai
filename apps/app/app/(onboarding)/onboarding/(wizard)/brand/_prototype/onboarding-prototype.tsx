@@ -5,6 +5,13 @@
 import OnboardingProgress from '@app/(onboarding)/onboarding/components/onboarding-progress';
 import { loadClientMessages } from '@app-i18n/client-messages';
 import { ButtonSize, ButtonVariant } from '@genfeedai/contracts';
+import {
+  InstagramIcon,
+  LinkedinIcon,
+  TiktokIcon,
+  XTwitterIcon,
+} from '@genfeedai/helpers/ui/icons/brands';
+import Card from '@ui/card/Card';
 import VideoPlayer from '@ui/display/video-player/VideoPlayer';
 import DesktopSidebar from '@ui/layouts/app/DesktopSidebar';
 import PlatformPreview, {
@@ -19,10 +26,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@ui/primitives/dialog';
-import { Textarea } from '@ui/primitives/textarea';
-import { ArrowRight, Check, CloudCheck, Pencil, RefreshCw } from 'lucide-react';
+import { Input } from '@ui/primitives/input';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CloudCheck,
+  RefreshCw,
+} from 'lucide-react';
 import { NextIntlClientProvider } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { z } from 'zod';
 
@@ -38,7 +51,7 @@ const snapshotSchema = z.object({
   runId: z.literal('starter-demo-001'),
   phase: z.enum(['brand', 'generating', 'review', 'connect']),
   verdicts: z.record(z.string(), z.enum(['keep', 'skip'])),
-  edits: z.record(z.string(), z.string()),
+  website: z.string().default('https://genfeed.ai'),
   video: z.enum(['complete', 'running', 'failed']),
   generationRequests: z.number().int().nonnegative(),
   creditsSpent: z.number().int().nonnegative(),
@@ -50,7 +63,7 @@ const fresh = (): Snapshot => ({
   runId: 'starter-demo-001',
   phase: 'review',
   verdicts: {},
-  edits: {},
+  website: 'https://genfeed.ai',
   video: 'complete',
   generationRequests: 1,
   creditsSpent: 12,
@@ -66,6 +79,12 @@ function restore() {
   return { snapshot: fresh(), restored: false };
 }
 const initial = restore();
+const connections = [
+  { platform: 'instagram', label: 'Instagram', Icon: InstagramIcon },
+  { platform: 'tiktok', label: 'TikTok', Icon: TiktokIcon },
+  { platform: 'twitter', label: 'X', Icon: XTwitterIcon },
+  { platform: 'linkedin', label: 'LinkedIn', Icon: LinkedinIcon },
+];
 const drafts: PlatformPreviewTarget[] = [
   {
     id: 'post-instagram-01',
@@ -143,17 +162,18 @@ const drafts: PlatformPreviewTarget[] = [
 function OnboardingPrototype() {
   const [snapshot, setSnapshot] = useState(initial.snapshot);
   const [skipConfirm, setSkipConfirm] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState(false);
   const [notice, setNotice] = useState('');
-  const [website, setWebsite] = useState('https://genfeed.ai');
+  const contentRef = useRef<HTMLElement>(null);
   const phaseIndex = { brand: 0, generating: 1, review: 2, connect: 3 }[
     snapshot.phase
   ];
   const kept = Object.values(snapshot.verdicts).filter(
     (value) => value === 'keep',
   ).length;
-  const editingDraft = drafts.find((draft) => draft.id === editing);
+  useEffect(() => {
+    if (snapshot.phase) contentRef.current?.scrollTo({ top: 0 });
+  }, [snapshot.phase]);
   useEffect(() => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(snapshot));
@@ -238,6 +258,22 @@ function OnboardingPrototype() {
               role="toolbar"
               aria-label="Onboarding actions"
             >
+              {snapshot.phase !== 'brand' && (
+                <Button
+                  className="mr-auto"
+                  size={ButtonSize.SM}
+                  variant={ButtonVariant.GHOST}
+                  onClick={() =>
+                    setSnapshot((current) => ({
+                      ...current,
+                      phase: current.phase === 'connect' ? 'review' : 'brand',
+                    }))
+                  }
+                >
+                  <ArrowLeft className="size-4" />
+                  Back
+                </Button>
+              )}
               <Button
                 size={ButtonSize.SM}
                 variant={ButtonVariant.GHOST}
@@ -253,8 +289,8 @@ function OnboardingPrototype() {
                     if (snapshot.phase === 'brand') {
                       setSnapshot((current) => ({
                         ...current,
-                        phase: 'generating',
-                        video: 'running',
+                        phase:
+                          current.video === 'running' ? 'generating' : 'review',
                       }));
                     } else if (snapshot.phase === 'review') {
                       setSnapshot((current) => ({
@@ -267,7 +303,7 @@ function OnboardingPrototype() {
                   }}
                 >
                   {snapshot.phase === 'brand'
-                    ? 'Create posts'
+                    ? 'Continue'
                     : snapshot.phase === 'connect'
                       ? 'Finish'
                       : 'Continue'}
@@ -275,7 +311,11 @@ function OnboardingPrototype() {
                 </Button>
               )}
             </div>
-            <main className="prototype-main" aria-label="Onboarding content">
+            <main
+              ref={contentRef}
+              className="prototype-main"
+              aria-label="Onboarding content"
+            >
               {snapshot.phase === 'review' && (
                 <div className="prototype-gallery">
                   {drafts.map((draft) => {
@@ -315,10 +355,7 @@ function OnboardingPrototype() {
                             </div>
                           ) : (
                             <PlatformPreview
-                              target={{
-                                ...draft,
-                                caption: snapshot.edits[id] ?? draft.caption,
-                              }}
+                              target={draft}
                               headerPresentation="account"
                               statusLabel={
                                 isRejected
@@ -397,14 +434,6 @@ function OnboardingPrototype() {
                                 data-action={`skip:${id}`}
                                 label="Not for me"
                               />
-                              <Button
-                                size={ButtonSize.SM}
-                                variant={ButtonVariant.GHOST}
-                                ariaLabel={`Edit ${draft.platform} caption`}
-                                onClick={() => setEditing(id)}
-                              >
-                                <Pencil className="size-3.5" />
-                              </Button>
                             </>
                           )}
                         </div>
@@ -414,23 +443,45 @@ function OnboardingPrototype() {
                 </div>
               )}
               {snapshot.phase === 'brand' && (
-                <div className="mx-auto mt-10 max-w-xl">
+                <form
+                  className="mx-auto mt-10 max-w-xl"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    setSnapshot((current) => ({
+                      ...current,
+                      phase:
+                        current.video === 'running' ? 'generating' : 'review',
+                    }));
+                  }}
+                >
                   <h1 className="text-2xl font-semibold">
-                    Start with your website
+                    Add your brand link
                   </h1>
-                  <label
-                    htmlFor="website"
-                    className="mt-6 block text-xs text-muted-foreground"
-                  >
-                    Website
-                  </label>
-                  <Textarea
-                    id="website"
-                    className="mt-2 min-h-10"
-                    value={website}
-                    onChange={(event) => setWebsite(event.target.value)}
-                  />
-                </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Your website or social profile helps us learn what you do
+                    and how you sound.
+                  </p>
+                  <div className="mt-6 flex items-center gap-2">
+                    <Input
+                      id="website"
+                      type="url"
+                      required
+                      aria-label="Website or social profile"
+                      className="min-w-0 flex-1"
+                      value={snapshot.website}
+                      placeholder="https://yourbrand.com"
+                      onChange={(event) =>
+                        setSnapshot((current) => ({
+                          ...current,
+                          website: event.target.value,
+                        }))
+                      }
+                    />
+                    <Button type="submit" ariaLabel="Submit brand link">
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  </div>
+                </form>
               )}
               {snapshot.phase === 'generating' && (
                 <div className="mx-auto mt-20 max-w-md text-center">
@@ -441,43 +492,47 @@ function OnboardingPrototype() {
                 </div>
               )}
               {snapshot.phase === 'connect' && (
-                <div className="mx-auto mt-8 max-w-xl">
-                  <h1 className="text-2xl font-semibold">Connect accounts</h1>
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    Publish when you’re ready.
-                  </p>
-                  <div className="mt-6 grid gap-3">
-                    {drafts.map((draft) => (
-                      <div
-                        className="flex items-center justify-between gap-3 border-b border-border py-3"
-                        key={draft.platform}
-                      >
-                        <span className="text-sm capitalize">
-                          {draft.platform === 'twitter' ? 'X' : draft.platform}
-                        </span>
-                        <Button
-                          size={ButtonSize.SM}
-                          variant={ButtonVariant.SECONDARY}
-                          label={
-                            snapshot.connected.includes(draft.platform)
-                              ? 'Connected'
-                              : 'Connect'
-                          }
-                          onClick={() => {
-                            setSnapshot((current) => ({
-                              ...current,
-                              connected: [
-                                ...new Set([
-                                  ...current.connected,
-                                  draft.platform,
-                                ]),
-                              ],
-                            }));
-                            setNotice('Demo account connected');
-                          }}
-                        />
-                      </div>
-                    ))}
+                <div className="mx-auto w-full max-w-3xl">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {connections.map(({ platform, label, Icon }) => {
+                      const connected = snapshot.connected.includes(platform);
+                      return (
+                        <Card
+                          key={platform}
+                          data-testid={`connect-card-${platform}`}
+                          bodyClassName="gap-5 p-5"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon
+                              className="size-8 shrink-0"
+                              aria-hidden="true"
+                            />
+                            <h2 className="text-sm font-semibold">{label}</h2>
+                          </div>
+                          <Button
+                            size={ButtonSize.SM}
+                            variant={ButtonVariant.SECONDARY}
+                            isDisabled={connected}
+                            ariaLabel={
+                              connected
+                                ? `${label} connected`
+                                : `Connect ${label}`
+                            }
+                            onClick={() =>
+                              setSnapshot((current) => ({
+                                ...current,
+                                connected: [
+                                  ...new Set([...current.connected, platform]),
+                                ],
+                              }))
+                            }
+                          >
+                            {connected && <Check className="size-3.5" />}
+                            {connected ? 'Connected' : 'Connect'}
+                          </Button>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -506,36 +561,6 @@ function OnboardingPrototype() {
             {notice}
           </output>
         )}
-        <Dialog
-          open={Boolean(editing)}
-          onOpenChange={(open) => {
-            if (!open) setEditing(null);
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit caption</DialogTitle>
-            </DialogHeader>
-            {editingDraft && (
-              <Textarea
-                aria-label="Caption"
-                className="min-h-52"
-                value={
-                  snapshot.edits[editingDraft.id || editingDraft.platform] ??
-                  editingDraft.caption
-                }
-                onChange={(event) => {
-                  const id = editingDraft.id || editingDraft.platform;
-                  setSnapshot((current) => ({
-                    ...current,
-                    edits: { ...current.edits, [id]: event.target.value },
-                  }));
-                }}
-              />
-            )}
-            <Button onClick={() => setEditing(null)} label="Done" />
-          </DialogContent>
-        </Dialog>
         <Dialog open={skipConfirm} onOpenChange={setSkipConfirm}>
           <DialogContent>
             <DialogHeader>
