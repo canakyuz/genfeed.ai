@@ -1466,6 +1466,14 @@ export async function proxy(req: NextRequest) {
     );
   }
 
+  // Throwaway #7842 preview: same isolated mock-auth mode as browser fixtures.
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.PLUGINS_PROTOTYPE === '1'
+  ) {
+    return NextResponse.next();
+  }
+
   if (req.nextUrl.pathname === '/playwright-ready') {
     return NextResponse.next();
   }

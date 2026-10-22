@@ -40,6 +40,7 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import PluginAppThumbnail from '@/components/plugins/PluginAppThumbnail';
+import PluginsGalleryPrototype from '@/components/plugins/PluginsGalleryPrototype';
 import {
   PLUGIN_APP_CATALOG,
   PLUGIN_CATEGORY_IDS,
@@ -246,6 +247,10 @@ export default function OrganizationPluginsPage() {
       value: activeFilter,
     },
   ];
+
+  if (process.env.NODE_ENV !== 'production') {
+    return <PluginsGalleryPrototype apps={apps} isLoading={isLoading} />;
+  }
 
   return (
     <AdminPageShell
