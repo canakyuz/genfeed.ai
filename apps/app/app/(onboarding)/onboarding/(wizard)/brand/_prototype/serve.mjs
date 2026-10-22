@@ -19,10 +19,9 @@ const assets = new Map([
     '/prototype-assets/satoshi.woff2',
     resolve(root, 'packages/fonts/files/Satoshi-Variable.woff2'),
   ],
-  ...['poster.svg', 'video-poster.svg', 'first-video.mp4'].map((name) => [
-    `/prototype-assets/${name}`,
-    resolve(directory, name),
-  ]),
+  ...['avatar.svg', 'poster.svg', 'video-poster.svg', 'first-video.mp4'].map(
+    (name) => [`/prototype-assets/${name}`, resolve(directory, name)],
+  ),
 ]);
 Bun.serve({
   hostname: '127.0.0.1',

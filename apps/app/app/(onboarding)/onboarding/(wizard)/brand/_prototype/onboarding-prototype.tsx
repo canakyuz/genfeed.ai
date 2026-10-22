@@ -15,6 +15,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@ui/primitives/dialog';
@@ -71,7 +72,11 @@ const drafts: PlatformPreviewTarget[] = [
     platform: 'instagram',
     caption:
       'Your next post shouldn’t start with a blank page.\n\nGive Genfeed your brand. Get images, videos, and words that sound like you.\n\nLess busywork. More you.',
-    author: { name: 'Genfeed', handle: 'genfeedai' },
+    author: {
+      name: 'Genfeed',
+      handle: 'genfeedai',
+      avatarUrl: '/prototype-assets/avatar.svg',
+    },
     media: [
       {
         id: 'starter-image-01',
@@ -86,7 +91,11 @@ const drafts: PlatformPreviewTarget[] = [
     platform: 'tiktok',
     caption:
       'Your brand already has a voice. Let’s put it to work.\n\nOne idea. Your images, your video, your next post. All in one place.\n\nMade with Genfeed.',
-    author: { name: 'Genfeed', handle: 'genfeedai' },
+    author: {
+      name: 'Genfeed',
+      handle: 'genfeedai',
+      avatarUrl: '/prototype-assets/avatar.svg',
+    },
     media: [
       {
         id: 'starter-video-01',
@@ -103,7 +112,11 @@ const drafts: PlatformPreviewTarget[] = [
     platform: 'twitter',
     caption:
       'You built the brand. We’ll help you tell its story.\n\nGenfeed turns one idea into images, videos, and posts in your voice.\n\nLess blank-page staring. More putting your work out there.',
-    author: { name: 'Genfeed', handle: 'genfeedai' },
+    author: {
+      name: 'Genfeed',
+      handle: 'genfeedai',
+      avatarUrl: '/prototype-assets/avatar.svg',
+    },
     media: [
       {
         id: 'starter-image-01',
@@ -118,14 +131,18 @@ const drafts: PlatformPreviewTarget[] = [
     platform: 'linkedin',
     caption:
       'The best part of your brand isn’t how often you post. It’s what you have to say.\n\nGenfeed brings your brand context, ideas, and content into one workspace. Start with what you know. Leave with something worth sharing.\n\nYour voice stays yours. The busywork gets smaller.',
-    author: { name: 'Genfeed', handle: 'genfeedai' },
+    author: {
+      name: 'Genfeed',
+      handle: 'genfeedai',
+      avatarUrl: '/prototype-assets/avatar.svg',
+    },
     media: [],
   },
 ];
 
 function OnboardingPrototype() {
   const [snapshot, setSnapshot] = useState(initial.snapshot);
-  const [restored, setRestored] = useState(initial.restored);
+  const [skipConfirm, setSkipConfirm] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState(false);
   const [notice, setNotice] = useState('');
@@ -169,10 +186,7 @@ function OnboardingPrototype() {
       ...current,
       verdicts: { ...current.verdicts, [id]: value },
     }));
-  const exit = () =>
-    setNotice(
-      'Workspace handoff preview: your drafts and media are saved. Nothing was published.',
-    );
+  const exit = () => setNotice('Workspace preview · Drafts saved');
   return (
     <NextIntlClientProvider locale="en" messages={loadClientMessages('en')}>
       <div className="prototype-shell gf-app">
@@ -186,9 +200,13 @@ function OnboardingPrototype() {
             <span>/</span>
             <strong>{steps[phaseIndex]}</strong>
           </span>
-          <span className="prototype-save">
+          <span
+            className="prototype-save"
+            role="status"
+            aria-label="Progress saved"
+            title="Progress saved"
+          >
             <CloudCheck className="size-3.5" />
-            <span>Progress saved</span>
           </span>
         </header>
         <div className="prototype-frame">
@@ -212,291 +230,262 @@ function OnboardingPrototype() {
                   stepLabels={steps}
                 />
               </div>
-              <p className="mt-3 px-2.5 text-xs text-muted-foreground">
-                Account connection is optional.
-              </p>
-              <div className="mt-auto border-t border-border px-2.5 pt-4 text-xs text-muted-foreground">
-                <CloudCheck className="mb-2 size-4" />
-                <p>Your progress stays saved.</p>
-                <p className="mt-1">You can come back anytime.</p>
-              </div>
             </div>
           </DesktopSidebar>
-          <main className="prototype-main" aria-label="Onboarding content">
-            {snapshot.phase === 'review' && (
-              <>
-                {restored && (
-                  <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground">
-                    <span>
-                      Your saved drafts and choices are restored. No extra
-                      credits used.
-                    </span>
-                    <Button
-                      size={ButtonSize.SM}
-                      variant={ButtonVariant.GHOST}
-                      onClick={() => setRestored(false)}
-                      label="Dismiss"
-                    />
-                  </div>
-                )}
-                <div className="mb-4 flex items-center justify-between gap-3 text-xs">
-                  <span>
-                    Your first collection{' '}
-                    <span className="ml-2 text-muted-foreground">
-                      4 drafts · 2 media assets
-                    </span>
-                  </span>
-                  <span className="text-muted-foreground">
-                    Saved to your Library
-                  </span>
-                </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div
+              className="prototype-subtopbar"
+              role="toolbar"
+              aria-label="Onboarding actions"
+            >
+              <Button
+                size={ButtonSize.SM}
+                variant={ButtonVariant.GHOST}
+                onClick={() => setSkipConfirm(true)}
+                label="Skip onboarding"
+              />
+              {snapshot.phase !== 'generating' && (
+                <Button
+                  size={ButtonSize.SM}
+                  data-action="continue"
+                  isDisabled={snapshot.phase === 'review' && kept === 0}
+                  onClick={() => {
+                    if (snapshot.phase === 'brand') {
+                      setSnapshot((current) => ({
+                        ...current,
+                        phase: 'generating',
+                        video: 'running',
+                      }));
+                    } else if (snapshot.phase === 'review') {
+                      setSnapshot((current) => ({
+                        ...current,
+                        phase: 'connect',
+                      }));
+                    } else {
+                      exit();
+                    }
+                  }}
+                >
+                  {snapshot.phase === 'brand'
+                    ? 'Create posts'
+                    : snapshot.phase === 'connect'
+                      ? 'Finish'
+                      : 'Continue'}
+                  <ArrowRight className="size-4" />
+                </Button>
+              )}
+            </div>
+            <main className="prototype-main" aria-label="Onboarding content">
+              {snapshot.phase === 'review' && (
                 <div className="prototype-gallery">
                   {drafts.map((draft) => {
                     const id = draft.id || draft.platform;
+                    const isRejected = snapshot.verdicts[id] === 'skip';
                     const isFailed =
                       draft.platform === 'tiktok' &&
                       snapshot.video === 'failed';
                     return (
-                      <div className="min-w-0" key={id} data-draft-id={id}>
-                        {isFailed ? (
-                          <div className="rounded-lg border border-border bg-card p-5">
-                            <p className="text-sm font-semibold">
-                              Your video needs another try
-                            </p>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              Your image and posts are already saved.
-                            </p>
-                            <Button
-                              className="mt-4"
-                              variant={ButtonVariant.SECONDARY}
-                              label="Retry video · 4 demo GEN"
-                              onClick={() =>
-                                setSnapshot((current) => ({
-                                  ...current,
-                                  phase: 'generating',
-                                  video: 'running',
-                                  generationRequests:
-                                    current.generationRequests + 1,
-                                  creditsSpent: current.creditsSpent + 4,
-                                }))
+                      <div
+                        className="prototype-draft min-w-0"
+                        key={id}
+                        data-draft-id={id}
+                        data-verdict={snapshot.verdicts[id] || 'review'}
+                      >
+                        <div className="prototype-card-content">
+                          {isFailed ? (
+                            <div className="rounded-lg border border-border bg-card p-5">
+                              <p className="text-sm font-semibold">
+                                Video failed
+                              </p>
+                              <Button
+                                className="mt-4"
+                                variant={ButtonVariant.SECONDARY}
+                                label="Retry · 4 GEN"
+                                onClick={() =>
+                                  setSnapshot((current) => ({
+                                    ...current,
+                                    phase: 'generating',
+                                    video: 'running',
+                                    generationRequests:
+                                      current.generationRequests + 1,
+                                    creditsSpent: current.creditsSpent + 4,
+                                  }))
+                                }
+                              />
+                            </div>
+                          ) : (
+                            <PlatformPreview
+                              target={{
+                                ...draft,
+                                caption: snapshot.edits[id] ?? draft.caption,
+                              }}
+                              headerPresentation="account"
+                              statusLabel={
+                                isRejected
+                                  ? 'Not for me'
+                                  : snapshot.verdicts[id] === 'keep'
+                                    ? 'Kept'
+                                    : 'Saved'
+                              }
+                              showValidation={false}
+                              renderMedia={(item) =>
+                                item.kind === 'video' ||
+                                item.kind === 'short_video' ? (
+                                  <VideoPlayer
+                                    src={item.url || ''}
+                                    mediaClassName="object-cover"
+                                    mediaProps={{ poster: item.thumbnailUrl }}
+                                    ariaLabel={item.alt}
+                                  />
+                                ) : (
+                                  <img
+                                    src={item.url}
+                                    alt={item.alt || 'Brand image'}
+                                    className="absolute inset-0 size-full object-contain"
+                                  />
+                                )
                               }
                             />
-                          </div>
-                        ) : (
-                          <PlatformPreview
-                            target={{
-                              ...draft,
-                              caption: snapshot.edits[id] ?? draft.caption,
-                            }}
-                            statusLabel="Saved"
-                            showValidation={false}
-                            renderMedia={(item) =>
-                              item.kind === 'video' ||
-                              item.kind === 'short_video' ? (
-                                <VideoPlayer
-                                  src={item.url || ''}
-                                  mediaClassName="object-cover"
-                                  mediaProps={{ poster: item.thumbnailUrl }}
-                                  ariaLabel={item.alt}
-                                />
-                              ) : (
-                                <img
-                                  src={item.url}
-                                  alt={item.alt || 'Brand image'}
-                                  className="absolute inset-0 size-full object-contain"
-                                />
-                              )
-                            }
-                          />
-                        )}
-                        <div className="mt-2 flex items-center gap-2 px-1 pb-4">
-                          <Button
-                            size={ButtonSize.SM}
-                            variant={
-                              snapshot.verdicts[id] === 'keep'
-                                ? ButtonVariant.DEFAULT
-                                : ButtonVariant.SECONDARY
-                            }
-                            aria-pressed={snapshot.verdicts[id] === 'keep'}
-                            data-action={`keep:${id}`}
-                            onClick={() => rate(id, 'keep')}
-                          >
-                            <Check className="size-3.5" />
-                            {snapshot.verdicts[id] === 'keep'
-                              ? 'Keep this'
-                              : 'I’d post this'}
-                          </Button>
-                          <Button
-                            size={ButtonSize.SM}
-                            variant={ButtonVariant.GHOST}
-                            aria-pressed={snapshot.verdicts[id] === 'skip'}
-                            onClick={() => rate(id, 'skip')}
-                            label="Not for me"
-                          />
-                          <Button
-                            size={ButtonSize.SM}
-                            variant={ButtonVariant.GHOST}
-                            ariaLabel={`Edit ${draft.platform} caption`}
-                            onClick={() => setEditing(id)}
-                          >
-                            <Pencil className="size-3.5" />
-                          </Button>
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 px-1 pb-4">
+                          {isRejected ? (
+                            <div
+                              className="flex items-center gap-2"
+                              role="status"
+                            >
+                              <span className="text-xs text-muted-foreground">
+                                Not for me
+                              </span>
+                              <Button
+                                size={ButtonSize.SM}
+                                variant={ButtonVariant.SECONDARY}
+                                ariaLabel={`Undo rejection for ${draft.platform}`}
+                                onClick={() =>
+                                  setSnapshot((current) => {
+                                    const { [id]: _removed, ...verdicts } =
+                                      current.verdicts;
+                                    return { ...current, verdicts };
+                                  })
+                                }
+                                label="Undo"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <Button
+                                size={ButtonSize.SM}
+                                variant={
+                                  snapshot.verdicts[id] === 'keep'
+                                    ? ButtonVariant.DEFAULT
+                                    : ButtonVariant.SECONDARY
+                                }
+                                aria-pressed={snapshot.verdicts[id] === 'keep'}
+                                data-action={`keep:${id}`}
+                                onClick={() => rate(id, 'keep')}
+                              >
+                                <Check className="size-3.5" />
+                                {snapshot.verdicts[id] === 'keep'
+                                  ? 'Keep this'
+                                  : 'I’d post this'}
+                              </Button>
+                              <Button
+                                size={ButtonSize.SM}
+                                variant={ButtonVariant.GHOST}
+                                aria-pressed={snapshot.verdicts[id] === 'skip'}
+                                onClick={() => rate(id, 'skip')}
+                                data-action={`skip:${id}`}
+                                label="Not for me"
+                              />
+                              <Button
+                                size={ButtonSize.SM}
+                                variant={ButtonVariant.GHOST}
+                                ariaLabel={`Edit ${draft.platform} caption`}
+                                onClick={() => setEditing(id)}
+                              >
+                                <Pencil className="size-3.5" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </>
-            )}
-            {snapshot.phase === 'brand' && (
-              <div className="mx-auto mt-10 max-w-xl">
-                <h1 className="text-2xl font-semibold">
-                  Start with your website
-                </h1>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  This prototype reuses the same saved demo brand and media.
-                </p>
-                <label
-                  htmlFor="website"
-                  className="mt-6 block text-xs text-muted-foreground"
-                >
-                  Website
-                </label>
-                <Textarea
-                  id="website"
-                  className="mt-2 min-h-10"
-                  value={website}
-                  onChange={(event) => setWebsite(event.target.value)}
-                />
-                <Button
-                  className="mt-4"
-                  onClick={() =>
-                    setSnapshot((current) => ({
-                      ...current,
-                      phase: 'generating',
-                      video: 'running',
-                    }))
-                  }
-                  label="Create my first posts"
-                />
-              </div>
-            )}
-            {snapshot.phase === 'generating' && (
-              <div className="mx-auto mt-20 max-w-md text-center">
-                <RefreshCw className="mx-auto size-6 animate-spin" />
-                <p className="mt-5 text-lg font-semibold">
-                  Your brand is taking shape.
-                </p>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Saved images and posts are kept. The same video job resumes
-                  after refresh.
-                </p>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  One saved run · no new request on reload
-                </p>
-              </div>
-            )}
-            {snapshot.phase === 'connect' && (
-              <div className="mx-auto mt-8 max-w-xl">
-                <h1 className="text-2xl font-semibold">
-                  Connect when you’re ready
-                </h1>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Your drafts are saved. Nothing publishes automatically.
-                </p>
-                <div className="mt-6 grid gap-3">
-                  {drafts.map((draft) => (
-                    <div
-                      className="flex items-center justify-between gap-3 border-b border-border py-3"
-                      key={draft.platform}
-                    >
-                      <span className="text-sm capitalize">
-                        {draft.platform === 'twitter' ? 'X' : draft.platform}
-                      </span>
-                      <Button
-                        size={ButtonSize.SM}
-                        variant={ButtonVariant.SECONDARY}
-                        label={
-                          snapshot.connected.includes(draft.platform)
-                            ? 'Connected'
-                            : 'Connect'
-                        }
-                        onClick={() => {
-                          setSnapshot((current) => ({
-                            ...current,
-                            connected: [
-                              ...new Set([
-                                ...current.connected,
-                                draft.platform,
-                              ]),
-                            ],
-                          }));
-                          setNotice(
-                            'Demo connection only. No account was contacted.',
-                          );
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-6 flex gap-3">
-                  <Button onClick={exit} label="Open workspace" />
-                  <Button
-                    variant={ButtonVariant.GHOST}
-                    onClick={() =>
-                      setSnapshot((current) => ({
-                        ...current,
-                        phase: 'review',
-                      }))
-                    }
-                    label="Back to drafts"
+              )}
+              {snapshot.phase === 'brand' && (
+                <div className="mx-auto mt-10 max-w-xl">
+                  <h1 className="text-2xl font-semibold">
+                    Start with your website
+                  </h1>
+                  <label
+                    htmlFor="website"
+                    className="mt-6 block text-xs text-muted-foreground"
+                  >
+                    Website
+                  </label>
+                  <Textarea
+                    id="website"
+                    className="mt-2 min-h-10"
+                    value={website}
+                    onChange={(event) => setWebsite(event.target.value)}
                   />
                 </div>
-              </div>
-            )}
-          </main>
-        </div>
-        {snapshot.phase === 'review' && (
-          <footer className="prototype-actions">
-            <div>
-              <p className="text-xs">
-                {kept
-                  ? `${kept} of 4 drafts kept`
-                  : 'Choose the drafts you want to keep'}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {snapshot.creditsSpent} onboarding GEN used · Nothing published
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {kept > 0 && (
-                <Button
-                  variant={ButtonVariant.GHOST}
-                  onClick={exit}
-                  label="Open workspace"
-                />
               )}
-              <Button
-                data-action="continue"
-                onClick={() =>
-                  kept
-                    ? setSnapshot((current) => ({
-                        ...current,
-                        phase: 'connect',
-                      }))
-                    : exit()
-                }
-              >
-                {kept
-                  ? `Continue with ${kept} draft${kept === 1 ? '' : 's'}`
-                  : 'Open workspace'}
-                <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          </footer>
-        )}
+              {snapshot.phase === 'generating' && (
+                <div className="mx-auto mt-20 max-w-md text-center">
+                  <RefreshCw className="mx-auto size-6 animate-spin" />
+                  <p className="mt-5 text-lg font-semibold">
+                    Creating your posts…
+                  </p>
+                </div>
+              )}
+              {snapshot.phase === 'connect' && (
+                <div className="mx-auto mt-8 max-w-xl">
+                  <h1 className="text-2xl font-semibold">Connect accounts</h1>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Publish when you’re ready.
+                  </p>
+                  <div className="mt-6 grid gap-3">
+                    {drafts.map((draft) => (
+                      <div
+                        className="flex items-center justify-between gap-3 border-b border-border py-3"
+                        key={draft.platform}
+                      >
+                        <span className="text-sm capitalize">
+                          {draft.platform === 'twitter' ? 'X' : draft.platform}
+                        </span>
+                        <Button
+                          size={ButtonSize.SM}
+                          variant={ButtonVariant.SECONDARY}
+                          label={
+                            snapshot.connected.includes(draft.platform)
+                              ? 'Connected'
+                              : 'Connect'
+                          }
+                          onClick={() => {
+                            setSnapshot((current) => ({
+                              ...current,
+                              connected: [
+                                ...new Set([
+                                  ...current.connected,
+                                  draft.platform,
+                                ]),
+                              ],
+                            }));
+                            setNotice('Demo account connected');
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </main>
+          </div>
+        </div>
         <div className="prototype-lab">
-          <span>A · App components · Demo media</span>
+          <span>Prototype</span>
           <Button
             size={ButtonSize.SM}
             variant={ButtonVariant.GHOST}
@@ -526,9 +515,6 @@ function OnboardingPrototype() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit caption</DialogTitle>
-              <DialogDescription>
-                Your changes are saved with this draft.
-              </DialogDescription>
             </DialogHeader>
             {editingDraft && (
               <Textarea
@@ -550,13 +536,37 @@ function OnboardingPrototype() {
             <Button onClick={() => setEditing(null)} label="Done" />
           </DialogContent>
         </Dialog>
+        <Dialog open={skipConfirm} onOpenChange={setSkipConfirm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Skip onboarding?</DialogTitle>
+              <DialogDescription>
+                Confirming your brand and reviewing these posts helps Genfeed
+                create better content for you.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant={ButtonVariant.SECONDARY}
+                onClick={() => {
+                  setSkipConfirm(false);
+                  exit();
+                }}
+                label="Skip onboarding"
+              />
+              <Button
+                onClick={() => setSkipConfirm(false)}
+                label="Keep reviewing"
+              />
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <Dialog open={scenarios} onOpenChange={setScenarios}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Try the onboarding flow</DialogTitle>
               <DialogDescription>
-                Shared app components, isolated demo state. No real generation,
-                credit, connection, or publishing calls.
+                Demo only. No real credits or publishing.
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-wrap gap-2">
@@ -593,7 +603,6 @@ function OnboardingPrototype() {
                 label="Reset demo"
                 onClick={() => {
                   setSnapshot(fresh());
-                  setRestored(false);
                   setScenarios(false);
                 }}
               />

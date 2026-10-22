@@ -20,6 +20,7 @@ for (const [name, path, mime] of [
     'font/woff2',
   ],
   ['logo.svg', resolve(root, 'apps/app/public/logo.svg'), 'image/svg+xml'],
+  ['avatar.svg', resolve(directory, 'avatar.svg'), 'image/svg+xml'],
   ['poster.svg', resolve(directory, 'poster.svg'), 'image/svg+xml'],
   ['video-poster.svg', resolve(directory, 'video-poster.svg'), 'image/svg+xml'],
   ['first-video.mp4', resolve(directory, 'first-video.mp4'), 'video/mp4'],

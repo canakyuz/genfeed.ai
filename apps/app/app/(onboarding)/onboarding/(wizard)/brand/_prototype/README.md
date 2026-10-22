@@ -1,6 +1,6 @@
 # Throwaway onboarding prototype — selected gallery A
 
-Decision: use the media-first gallery inside the familiar application frame, with the existing left sidebar repurposed as non-clickable onboarding progress. Remove the decorative review heading and global application rail. Keep an explicit Open workspace exit.
+Decision: use the media-first gallery inside the familiar application frame, with the existing left sidebar repurposed as non-clickable onboarding progress. Remove the decorative review heading and global application rail. Use the sub-topbar for Continue and Skip onboarding. Skipping asks for confirmation; reviewing brand context and posts improves output.
 
 This version imports the real application components rather than reproducing their markup:
 
@@ -38,3 +38,9 @@ All media, credit amounts, job progress, and account connections are fixtures. N
 A is the selected direction; the complete throwaway source remains on its branch, outside master. [Implementation tracking: #7775](https://github.com/genfeedai/genfeed.ai/issues/7775).
 
 Use the same shared React components in production, with the authenticated shell's onboarding mode. Restore the organization/brand-scoped server-owned run and saved outputs before considering generation; reconcile in-flight jobs and make credit-bearing requests idempotent. Retry only an explicitly requested failed asset. Local browser storage alone cannot protect credits across tabs, devices, cleared storage, or concurrent requests. Preserve onboarding authentication and tenant boundaries.
+
+## Grouped preview and review feedback
+
+The existing PlatformPreview now offers an opt-in account header: one avatar/name/handle group with its platform badge, without a repeated platform heading and author block. Existing callers retain their default presentation. All four onboarding cards share one desktop row; narrower screens use two or one column. Not for me dims the preview to 35% opacity and shows an explicit Undo action. The rejected choice survives refresh; Undo restores the normal preview.
+
+The sub-topbar owns the primary action across steps. The footer, repeated saved/restored notices, collection metadata, sidebar reminders, and explanatory demo copy are removed. Skip onboarding opens the shared dialog primitives with Keep reviewing as the primary action.
