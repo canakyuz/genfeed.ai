@@ -1,0 +1,261 @@
+@font-face {
+  font-family: Satoshi;
+  src: url("/prototype-assets/satoshi.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+:root {
+  color-scheme: dark;
+  --desktop-sidebar-width: 220px;
+  --font-sans:
+    Satoshi, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+}
+.prototype-shell {
+  height: 100dvh;
+  background: hsl(var(--gray-100));
+  overflow: hidden;
+  font-family: var(--font-sans);
+}
+.prototype-topbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 22px;
+  font-size: 12px;
+}
+.prototype-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 182px;
+  font-weight: 600;
+}
+.prototype-brand img {
+  width: 21px;
+  height: 21px;
+  filter: invert(1);
+}
+.prototype-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: hsl(var(--muted-foreground));
+}
+.prototype-breadcrumb strong {
+  color: hsl(var(--foreground));
+  font-weight: 500;
+}
+.prototype-save {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: hsl(var(--success));
+  font-size: 11px;
+}
+.prototype-frame {
+  position: fixed;
+  inset: 48px 8px 8px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--background));
+}
+.prototype-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 24px 28px 165px;
+}
+.prototype-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.prototype-gallery > div:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.prototype-gallery > div:nth-child(2) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.prototype-gallery > div:nth-child(3) {
+  grid-column: 3;
+  grid-row: 1;
+}
+.prototype-gallery > div:nth-child(4) {
+  grid-column: 3;
+  grid-row: 2;
+}
+.prototype-actions {
+  position: fixed;
+  left: 229px;
+  right: 9px;
+  bottom: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  padding: 16px 28px 75px;
+  z-index: 10;
+}
+.prototype-lab {
+  position: fixed;
+  bottom: 22px;
+  left: calc(50% + 110px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 14px;
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--gray-200));
+  font-size: 10px;
+  color: hsl(var(--muted-foreground));
+  z-index: 20;
+  white-space: nowrap;
+}
+.prototype-notice {
+  position: fixed;
+  top: 62px;
+  right: 24px;
+  max-width: 440px;
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 14px;
+  font-size: 12px;
+  z-index: 100;
+}
+/* The existing OnboardingProgress is placed vertically inside the existing DesktopSidebar. */
+.prototype-vertical-progress > div > div:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.prototype-vertical-progress > div > div:last-child > div {
+  height: 36px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  gap: 10px;
+}
+.prototype-vertical-progress > div > div:last-child > div > div {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+.prototype-vertical-progress > div > div:last-child > div > span {
+  font-size: 12px;
+}
+.prototype-vertical-progress > div > div:first-child {
+  height: 2px;
+  margin: 4px 10px 16px;
+  width: calc(100% - 20px);
+}
+.prototype-vertical-progress[data-step="0"]
+  > div
+  > div:last-child
+  > div:nth-child(1),
+.prototype-vertical-progress[data-step="1"]
+  > div
+  > div:last-child
+  > div:nth-child(2),
+.prototype-vertical-progress[data-step="2"]
+  > div
+  > div:last-child
+  > div:nth-child(3),
+.prototype-vertical-progress[data-step="3"]
+  > div
+  > div:last-child
+  > div:nth-child(4) {
+  background: hsl(var(--foreground) / 0.06);
+}
+@media (max-width: 1200px) {
+  .prototype-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .prototype-gallery > div:nth-child(n) {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .prototype-main {
+    padding: 22px 22px 165px;
+  }
+}
+@media (max-width: 767px) {
+  .prototype-brand {
+    min-width: auto;
+  }
+  .prototype-topbar {
+    padding: 0 16px;
+    gap: 16px;
+  }
+  .prototype-breadcrumb > span {
+    display: none;
+  }
+  .prototype-save > span {
+    display: none;
+  }
+  .prototype-frame {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  .prototype-main {
+    padding: 18px 18px 155px;
+  }
+  .prototype-actions {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 14px 16px 76px;
+    gap: 10px;
+  }
+  .prototype-actions > div:first-child {
+    max-width: 155px;
+  }
+  .prototype-actions > div:first-child > p:last-child {
+    display: none;
+  }
+  .prototype-lab {
+    left: 50%;
+    bottom: 18px;
+    max-width: calc(100vw - 20px);
+    gap: 2px;
+    padding-left: 8px;
+  }
+  .prototype-lab > span {
+    font-size: 9px;
+  }
+  .prototype-notice {
+    left: 16px;
+    right: 16px;
+    top: 58px;
+  }
+}
+@media (max-width: 560px) {
+  .prototype-gallery {
+    grid-template-columns: 1fr;
+  }
+  .prototype-topbar {
+    gap: 10px;
+  }
+  .prototype-breadcrumb {
+    font-size: 11px;
+  }
+}

@@ -1,3 +1,4 @@
+import { outputDirectory } from './preview-output.mjs';
 // THROWAWAY ONLY. A read-only replica at the real onboarding path, with fixture state.
 // This runner deliberately does not boot auth, backend services, or generation jobs.
 
@@ -10,6 +11,9 @@ if (process.env.NODE_ENV === 'production') {
 const directory = fileURLToPath(new URL('.', import.meta.url));
 const root = resolve(directory, '../../../../../../../..');
 const assets = new Map([
+  ['/prototype-assets/app.js', resolve(outputDirectory, 'app.generated.js')],
+  ['/prototype-assets/app.css', resolve(outputDirectory, 'app.generated.css')],
+  ['/prototype-assets/logo.svg', resolve(root, 'apps/app/public/logo.svg')],
   ['/prototype-assets/tokens.css', resolve(root, 'packages/ui/web-tokens.css')],
   [
     '/prototype-assets/satoshi.woff2',
