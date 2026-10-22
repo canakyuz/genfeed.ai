@@ -422,7 +422,7 @@ export default function PluginsGalleryPrototype({
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const requested = params.get('variant') ?? 'A';
+  const requested = params.get('variant') ?? 'C';
   const variant = VARIANTS.includes(requested) ? requested : 'A';
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
