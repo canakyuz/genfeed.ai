@@ -10,6 +10,7 @@ import type { BrandSwitcherProps } from '@genfeedai/props/social/brand-switcher.
 import { EnvironmentService } from '@genfeedai/services/core/environment.service';
 import { logger } from '@genfeedai/services/core/logger.service';
 import { UsersService } from '@genfeedai/services/organization/users.service';
+import SwitcherAvatar from '@ui/menus/switcher-dropdown/SwitcherAvatar';
 import SwitcherDropdown from '@ui/menus/switcher-dropdown/SwitcherDropdown';
 import {
   SWITCHER_AVATAR_CLASSNAME,
@@ -25,7 +26,6 @@ import {
 import { Button } from '@ui/primitives/button';
 import { hoverRevealClassName } from '@ui/styles/hover-reveal';
 import { ChevronsUpDown, Settings, UserRound, X } from 'lucide-react';
-import Image from 'next/image';
 import { type MouseEvent, useCallback, useState } from 'react';
 
 export default function MenuBrandSwitcher({
@@ -35,6 +35,7 @@ export default function MenuBrandSwitcher({
   compactOnMobile = false,
   isUpdatingBrand: externalIsUpdating,
   onBrandChange,
+  onLogoError,
   variant = 'avatar',
 }: BrandSwitcherProps) {
   const getUsersService = useAuthedService((token: string) =>
@@ -123,23 +124,16 @@ export default function MenuBrandSwitcher({
     }),
   ];
 
-  const brandAvatar =
-    selectedBrand?.logoUrl && selectedBrand.logoUrl !== '' ? (
-      <div className={SWITCHER_AVATAR_CLASSNAME}>
-        <Image
-          src={selectedBrand.logoUrl}
-          alt={selectedBrand.label ?? 'Brand'}
-          width={20}
-          height={20}
-          className="size-full object-cover object-center"
-          sizes="20px"
-        />
-      </div>
-    ) : (
-      <div className={SWITCHER_AVATAR_CLASSNAME}>
-        {selectedBrandLabel.charAt(0).toUpperCase()}
-      </div>
-    );
+  const brandAvatar = (
+    <SwitcherAvatar
+      alt={selectedBrand?.label ?? 'Brand'}
+      fallbackClassName={SWITCHER_AVATAR_CLASSNAME}
+      imageUrl={selectedBrand?.logoUrl || undefined}
+      imageWrapperClassName={SWITCHER_AVATAR_CLASSNAME}
+      letter={selectedBrandLabel.charAt(0).toUpperCase()}
+      onImageError={onLogoError}
+    />
+  );
 
   const labeledTrigger = (isOpen: boolean) => (
     <Button
@@ -200,6 +194,7 @@ export default function MenuBrandSwitcher({
             </Button>
           )}
           onSelect={(id) => void handleSelect(id)}
+          onImageError={onLogoError}
           isDisabled={isUpdating}
           hasSearch={items.length >= 5}
           minWidth={220}
@@ -256,6 +251,7 @@ export default function MenuBrandSwitcher({
         )
       }
       onSelect={(id) => void handleSelect(id)}
+      onImageError={onLogoError}
       isDisabled={isUpdating}
       hasSearch={items.length >= 5}
       minWidth={224}

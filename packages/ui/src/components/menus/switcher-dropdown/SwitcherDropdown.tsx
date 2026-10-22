@@ -7,6 +7,7 @@ import type {
   SwitcherDropdownProps,
   SwitcherDropdownTrailingAction,
 } from '@genfeedai/props/ui/menus/switcher-dropdown.props';
+import SwitcherAvatar from '@ui/menus/switcher-dropdown/SwitcherAvatar';
 import { Button } from '@ui/primitives/button';
 import {
   Command,
@@ -21,7 +22,6 @@ import {
   PopoverTrigger,
 } from '@ui/primitives/popover';
 import { Check, Plus } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { cloneElement, isValidElement, useCallback, useState } from 'react';
@@ -35,6 +35,7 @@ export default function SwitcherDropdown({
   renderTrigger,
   onSelect,
   onOpenChange,
+  onImageError,
   isDisabled = false,
   footerAction,
   footerActions,
@@ -187,6 +188,7 @@ export default function SwitcherDropdown({
                 key={item.id}
                 item={item}
                 onSelect={handleSelect}
+                onImageError={onImageError}
                 onAction={(action) => {
                   close();
                   action.onAction();
@@ -232,10 +234,12 @@ export default function SwitcherDropdown({
 function SwitcherItem({
   item,
   onAction,
+  onImageError,
   onSelect,
 }: {
   item: SwitcherDropdownItem;
   onAction: (action: SwitcherDropdownTrailingAction) => void;
+  onImageError?: () => void;
   onSelect: (id: string) => void;
 }) {
   const trailingActions = [
@@ -270,29 +274,19 @@ function SwitcherItem({
         )}
       >
         {/* Avatar */}
-        {item.imageUrl ? (
-          <div className="flex size-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-background">
-            <Image
-              src={item.imageUrl}
-              alt={item.label}
-              width={20}
-              height={20}
-              className="size-full object-cover object-center"
-              sizes="20px"
-            />
-          </div>
-        ) : (
-          <div
-            className={cn(
-              'flex size-5 flex-shrink-0 items-center justify-center rounded-md text-2xs font-bold',
-              item.isActive
-                ? 'bg-primary/30 text-primary'
-                : 'bg-foreground/10 text-foreground/50',
-            )}
-          >
-            {item.label.charAt(0).toUpperCase()}
-          </div>
-        )}
+        <SwitcherAvatar
+          alt={item.label}
+          fallbackClassName={cn(
+            'flex size-5 flex-shrink-0 items-center justify-center rounded-md text-2xs font-bold',
+            item.isActive
+              ? 'bg-primary/30 text-primary'
+              : 'bg-foreground/10 text-foreground/50',
+          )}
+          imageUrl={item.imageUrl}
+          imageWrapperClassName="flex size-5 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-background"
+          letter={item.label.charAt(0).toUpperCase()}
+          onImageError={onImageError}
+        />
 
         <span className="flex-1 truncate text-left">{item.label}</span>
 
