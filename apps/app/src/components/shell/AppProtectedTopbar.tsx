@@ -170,7 +170,7 @@ function AppProtectedTopbarContent({
               />
             </div>
 
-            <div className="hidden min-w-0 md:flex">
+            <div className={cn('min-w-0 md:flex', !isPluginsRoute && 'hidden')}>
               {isPluginsRoute ? (
                 <span className="text-sm font-semibold">Plugins</span>
               ) : (

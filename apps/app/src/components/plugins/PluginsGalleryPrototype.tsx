@@ -332,7 +332,7 @@ function VariantC({
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
       <div
-        className="space-y-1 lg:sticky lg:top-4"
+        className="max-h-60 space-y-1 overflow-y-auto lg:sticky lg:top-4 lg:max-h-none"
         role="group"
         aria-label="Choose an app"
       >
