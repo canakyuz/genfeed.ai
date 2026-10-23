@@ -328,5 +328,7 @@
     "moreLike": "More like",
     "moreLikeAria": "More like {name}",
     "savedLooks": "Saved looks"
-  }
+  },
+  "audioReference": "Audio reference",
+  "audioReferenceUnsupported": "Choose an audio-reference model, attach at most three audio clips, and include an image or video."
 }

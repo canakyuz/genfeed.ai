@@ -42,7 +42,7 @@ export const VIDEO_GENERATION_BRIEF_CONTRACT_VERSION = 1;
 export const PRUNAAI_P_VIDEO_COMPILER_ID = 'prunaai-p-video-compiler';
 export const PRUNAAI_P_VIDEO_COMPILER_VERSION = 1;
 export const MINIMAX_H3_COMPILER_ID = 'minimax-h3-compiler';
-export const MINIMAX_H3_COMPILER_VERSION = 2;
+export const MINIMAX_H3_COMPILER_VERSION = 3;
 
 export {
   generationBriefExemptionReasonSchema as videoGenerationBriefExemptionReasonSchema,
@@ -261,14 +261,14 @@ export const prunaaiPVideoDispatchSchema = z
 
 export const minimaxH3DispatchSchema = z
   .object({
-    duration: z.number().int().positive().max(300),
+    duration: z.number().int().min(4).max(15),
     first_frame_image: z.string().trim().min(1).max(2_048).optional(),
     last_frame_image: z.string().trim().min(1).max(2_048).optional(),
     prompt: z.string().trim().min(1).max(10_000),
     ratio: z.string().trim().min(1).max(32),
-    reference_audio_urls: z.array(z.string().trim().min(1).max(2_048)).max(10),
+    reference_audio_urls: z.array(z.string().trim().min(1).max(2_048)).max(3),
     reference_image_urls: z.array(z.string().trim().min(1).max(2_048)).max(9),
-    reference_video_urls: z.array(z.string().trim().min(1).max(2_048)).max(10),
+    reference_video_urls: z.array(z.string().trim().min(1).max(2_048)).max(3),
     resolution: z.enum(['768P', '2K']),
   })
   .strict();

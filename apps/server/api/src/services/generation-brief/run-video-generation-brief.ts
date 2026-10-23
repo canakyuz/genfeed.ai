@@ -13,7 +13,7 @@ import type { GenerationBriefSurface } from '@genfeedai/contracts/api-types/cont
 import { buildGenerationBriefCompileSource } from '@genfeedai/contracts/api-types/contracts/generation-brief-compiler.contract';
 import type { VideoGenerationBriefPersistedEvidence } from '@genfeedai/contracts/api-types/contracts/video-generation-brief-compiler.contract';
 import { buildVideoGenerationBriefExemptionSource } from '@genfeedai/contracts/api-types/contracts/video-generation-brief-compiler.contract';
-import { MODEL_KEYS } from '@genfeedai/contracts/constants';
+import { hasAudioReferences, MODEL_KEYS } from '@genfeedai/contracts/constants';
 import { ServiceUnavailableException } from '@nestjs/common';
 
 export interface RunVideoGenerationBriefInput {
@@ -24,6 +24,7 @@ export interface RunVideoGenerationBriefInput {
     | 'extend'
     | 'upscale';
   audioDirection?: string;
+  audioReferenceIds?: string[];
   avoid?: string[];
   brandingMode?: 'off' | 'brand';
   /**
@@ -83,6 +84,12 @@ function resolveVideoActionVerb(appliedFields: string[]) {
 export function runVideoGenerationBrief(
   input: RunVideoGenerationBriefInput,
 ): RunVideoGenerationBriefResult {
+  const hasAudio = input.audioReferenceIds?.length;
+  if (hasAudio && !hasAudioReferences(input.model)) {
+    throw new BusinessLogicException(
+      'The selected model does not support audio references',
+    );
+  }
   const support = resolveVideoGenerationBriefSupport(input.model);
   if (support.kind === 'exempt') {
     return {
@@ -130,6 +137,7 @@ export function runVideoGenerationBrief(
   });
   const brief = assembleVideoGenerationBrief({
     audioDirection: input.audioDirection,
+    audioReferenceIds: input.audioReferenceIds,
     avoid: input.avoid,
     brandContext: input.brandContext,
     composition: input.composition,

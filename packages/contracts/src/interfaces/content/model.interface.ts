@@ -63,6 +63,8 @@ export interface IModel extends IBaseEntity {
   hasInterpolation?: boolean;
   hasSpeech?: boolean;
   hasAudioToggle?: boolean;
+  hasAudioReferences?: boolean;
+  maxAudioReferences?: number;
   hasResolutionOptions?: boolean;
   isImagenModel?: boolean;
   isReferencesMandatory?: boolean;

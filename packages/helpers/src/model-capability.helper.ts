@@ -2,6 +2,8 @@ import { ModelCategory } from '@genfeedai/contracts';
 import {
   type AvatarModelCapability,
   type EmbeddingModelCapability,
+  getModelMaxAudioReferences,
+  hasAudioReferences,
   type ImageEditModelCapability,
   type ImageModelCapability,
   type ImageUpscaleModelCapability,
@@ -79,6 +81,8 @@ function buildVideoCapability(model: IModel): VideoModelCapability {
       hasSpeech: false,
       hasAudioToggle: false,
       requiresFirstFrame: false,
+      hasAudioReferences: false,
+      maxAudioReferences: 0,
       hasVideoReferences: false,
       maxVideoReferences: 0,
       hasNativeExtend: false,
@@ -101,6 +105,8 @@ function buildVideoCapability(model: IModel): VideoModelCapability {
   return {
     ...buildBaseFields(model),
     category: ModelCategory.VIDEO,
+    hasAudioReferences: hasAudioReferences(model.key),
+    maxAudioReferences: getModelMaxAudioReferences(model.key),
     ...(model.hasEndFrame != null && { hasEndFrame: model.hasEndFrame }),
     ...(model.hasInterpolation != null && {
       hasInterpolation: model.hasInterpolation,

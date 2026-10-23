@@ -1,78 +1,105 @@
 {
   "openapi": "3.0.2",
   "info": {
-    "title": "minimax/h3",
-    "description": "Replicate does not publish a version or OpenAPI document for minimax/h3. Fields and output come from https://replicate.com/minimax/h3/llms.txt (retrieved 2026-10-15); the resolution and duration ranges come from its readme."
+    "title": "Cog",
+    "version": "0.1.0"
+  },
+  "x-provider-evidence": {
+    "url": "https://replicate.com/minimax/h3/api/schema",
+    "fetchedAt": "2026-10-23T13:41:28Z",
+    "observedVersion": "c1496d254e0a0b09b6390942f1dabc9ba6c740323db0b4917463bde5912c4028",
+    "versionless": true,
+    "note": "Published component snapshot; description limits are enforced separately by application policy."
   },
   "components": {
     "schemas": {
       "Input": {
-        "type": "object",
-        "title": "Input",
-        "required": ["prompt"],
         "properties": {
-          "prompt": {
-            "type": "string",
-            "title": "Prompt",
-            "description": "Text prompt for generation"
+          "duration": {
+            "default": 5,
+            "description": "Output duration in seconds.",
+            "enum": [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            "title": "duration",
+            "type": "integer",
+            "x-order": 6
           },
           "first_frame_image": {
-            "type": "string",
+            "description": "First frame image for video generation. The output video will have the same aspect ratio as this image.",
             "format": "uri",
+            "nullable": true,
             "title": "First Frame Image",
-            "description": "First frame image for video generation. The output video will have the same aspect ratio as this image."
+            "type": "string",
+            "x-order": 1
           },
           "last_frame_image": {
-            "type": "string",
+            "description": "Last frame image for video generation. The final frame of the output video will match this image.",
             "format": "uri",
+            "nullable": true,
             "title": "Last Frame Image",
-            "description": "Last frame image for video generation. The final frame of the output video will match this image."
-          },
-          "reference_image_urls": {
-            "type": "array",
-            "title": "Reference Image Urls",
-            "description": "Public URLs for up to 9 reference images.",
-            "items": { "type": "string", "format": "uri" },
-            "maxItems": 9
-          },
-          "reference_video_urls": {
-            "type": "array",
-            "title": "Reference Video Urls",
-            "description": "Public URLs for up to 3 reference videos.",
-            "items": { "type": "string", "format": "uri" },
-            "maxItems": 3
-          },
-          "reference_audio_urls": {
-            "type": "array",
-            "title": "Reference Audio Urls",
-            "description": "Public URLs for up to 3 reference audio clips.",
-            "items": { "type": "string", "format": "uri" },
-            "maxItems": 3
-          },
-          "duration": {
-            "type": "integer",
-            "title": "Duration",
-            "description": "Output duration in seconds.",
-            "minimum": 4,
-            "maximum": 15
-          },
-          "resolution": {
             "type": "string",
-            "title": "Resolution",
-            "description": "Output resolution.",
-            "enum": ["768P", "2K"]
+            "x-order": 2
+          },
+          "prompt": {
+            "description": "Text prompt for generation",
+            "title": "Prompt",
+            "type": "string",
+            "x-order": 0
           },
           "ratio": {
+            "default": "16:9",
+            "description": "Output aspect ratio. Required for text-to-video; adaptive for image-to-video.",
+            "enum": ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+            "title": "ratio",
             "type": "string",
-            "title": "Ratio",
-            "description": "Output aspect ratio. Required for text-to-video; adaptive for image-to-video."
+            "x-order": 8
+          },
+          "reference_audio_urls": {
+            "default": [],
+            "description": "Public URLs for up to 3 reference audio clips.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reference Audio Urls",
+            "type": "array",
+            "x-order": 5
+          },
+          "reference_image_urls": {
+            "default": [],
+            "description": "Public URLs for up to 9 reference images.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reference Image Urls",
+            "type": "array",
+            "x-order": 3
+          },
+          "reference_video_urls": {
+            "default": [],
+            "description": "Public URLs for up to 3 reference videos.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Reference Video Urls",
+            "type": "array",
+            "x-order": 4
+          },
+          "resolution": {
+            "default": "2K",
+            "description": "Output resolution.",
+            "enum": ["768P", "2K"],
+            "title": "resolution",
+            "type": "string",
+            "x-order": 7
           }
-        }
+        },
+        "required": ["prompt"],
+        "title": "Input",
+        "type": "object"
       },
       "Output": {
-        "type": "string",
+        "format": "uri",
         "title": "Output",
-        "format": "uri"
+        "type": "string"
       }
     }
   }

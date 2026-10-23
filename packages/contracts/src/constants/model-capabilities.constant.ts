@@ -39,6 +39,8 @@ export interface VideoModelCapability extends BaseModelCapability {
   category: ModelCategory.VIDEO;
   hasEndFrame?: boolean;
   hasNativeExtend?: boolean;
+  hasAudioReferences?: boolean;
+  maxAudioReferences?: number;
   hasVideoReferences?: boolean;
   maxVideoReferences?: number;
   hasInterpolation?: boolean;
@@ -892,7 +894,10 @@ export const MODEL_OUTPUT_CAPABILITIES: Record<string, ModelOutputCapability> =
     },
 
     // MiniMax H3 / Hailuo
+    // Verified Replicate H3 schema (2026-10-23): audio conditions generation; it is not a pass-through lock.
     [MODEL_KEYS.REPLICATE_MINIMAX_H3]: {
+      hasAudioReferences: true,
+      maxAudioReferences: 3,
       aspectRatios: ASPECT_RATIOS.SEEDANCE,
       category: ModelCategory.VIDEO,
       defaultAspectRatio: '16:9',

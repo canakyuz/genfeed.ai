@@ -280,6 +280,7 @@ export interface PromptBarAttachedAsset {
     | 'startFrame'
     | 'endFrame'
     | 'videoReference'
+    | 'audioReference'
     | 'input';
   previewUrl?: string;
   name?: string;
