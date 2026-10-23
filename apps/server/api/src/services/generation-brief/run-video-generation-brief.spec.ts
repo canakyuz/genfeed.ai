@@ -4,6 +4,40 @@ import { MODEL_KEYS } from '@genfeedai/contracts/constants';
 import { describe, expect, it } from 'vitest';
 
 describe('runVideoGenerationBrief', () => {
+  it('preserves ordered image, video and audio arrays together', () => {
+    const result = runVideoGenerationBrief({
+      model: MODEL_KEYS.REPLICATE_MINIMAX_H3,
+      objective: 'Synthetic multimodal fixture',
+      surface: 'studio',
+      width: 1920,
+      height: 1080,
+      referenceIds: ['frame', 'person'],
+      videoReferenceIds: ['driver'],
+      audioReferenceIds: ['voice-1', 'voice-2'],
+    });
+    expect(result.dispatch).toMatchObject({
+      first_frame_image: 'frame',
+      reference_image_urls: ['person'],
+      reference_video_urls: ['driver'],
+      reference_audio_urls: ['voice-1', 'voice-2'],
+    });
+    expect(result.dispatch).not.toHaveProperty('generate_audio');
+  });
+  it.each([MODEL_KEYS.REPLICATE_PRUNAAI_P_VIDEO, 'unregistered/model'])(
+    'rejects audio on unsupported %s before compilation/exemption',
+    (model) => {
+      expect(() =>
+        runVideoGenerationBrief({
+          model,
+          objective: 'test',
+          surface: 'studio',
+          width: 1920,
+          height: 1080,
+          audioReferenceIds: ['voice'],
+        }),
+      ).toThrow('does not support audio references');
+    },
+  );
   it('stamps the originating surface on compiled evidence (#3469)', () => {
     const result = runVideoGenerationBrief({
       durationSeconds: 5,

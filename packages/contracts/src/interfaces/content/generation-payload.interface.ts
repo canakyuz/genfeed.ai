@@ -57,6 +57,7 @@ export interface VideoGenerationPayload extends BaseGenerationPayload {
   duration?: number;
   endFrame?: string;
   videoReferences?: string[];
+  audioReferences?: string[];
 }
 
 export interface ImageGenerationPayload extends BaseGenerationPayload {

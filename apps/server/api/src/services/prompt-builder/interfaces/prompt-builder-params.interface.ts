@@ -45,6 +45,7 @@ export interface PromptBuilderParams {
   references?: string[];
   endFrame?: string; // For video interpolation (Veo 3.1)
   video?: string; // For video-to-video operations
+  audioReferences?: string[];
   audioUrl?: string; // For avatar models (Kling Avatar V2)
 
   // Branding

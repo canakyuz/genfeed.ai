@@ -10,6 +10,7 @@ import { calculateAspectRatio } from '@genfeedai/helpers';
 
 export interface AssembleVideoGenerationBriefInput {
   audioDirection?: string;
+  audioReferenceIds?: string[];
   avoid?: string[];
   /** Resolved brand-voice text; only ever passed when Brand voice is on. */
   brandContext?: string;
@@ -139,6 +140,9 @@ export function assembleVideoGenerationBrief(
       : undefined;
 
   const brief = videoGenerationBriefSchema.parse({
+    ...(input.audioReferenceIds?.length
+      ? { audioReferences: uniqueTexts(input.audioReferenceIds) }
+      : {}),
     constraints,
     fidelityMode: input.fidelityMode,
     intent: {

@@ -105,6 +105,18 @@ export function requiresFirstFrame(
   return (cap as VideoModelCapability).requiresFirstFrame ?? false;
 }
 
+/** Audio support is restricted to the reviewed catalog, never inferred from speech output. */
+export function getModelMaxAudioReferences(modelKey: string): number {
+  const cap = MODEL_OUTPUT_CAPABILITIES[modelKey];
+  return cap?.category === ModelCategory.VIDEO && cap.hasAudioReferences
+    ? (cap.maxAudioReferences ?? 0)
+    : 0;
+}
+
+export function hasAudioReferences(modelKey: string): boolean {
+  return getModelMaxAudioReferences(modelKey) > 0;
+}
+
 export function hasVideoReferences(
   modelKey: string,
   capability?: ModelOutputCapability | null,
