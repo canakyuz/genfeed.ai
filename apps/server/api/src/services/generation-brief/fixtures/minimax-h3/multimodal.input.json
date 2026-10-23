@@ -17,13 +17,9 @@
     "cinematography": "steady wide establishing shot",
     "motion": "slow push in",
     "objective": "Animate the product spin into a full campaign clip",
-    "requestedText": [
-      "NEW"
-    ],
+    "requestedText": ["NEW"],
     "scene": "minimalist white cyclorama studio",
-    "subjects": [
-      "Reusable bottle"
-    ],
+    "subjects": ["Reusable bottle"],
     "visualDirection": "Clean editorial product cinematography"
   },
   "mediaKind": "video",
@@ -69,7 +65,5 @@
     }
   ],
   "version": 1,
-  "audioReferences": [
-    "synthetic_voice"
-  ]
+  "audioReferences": ["synthetic_voice"]
 }
