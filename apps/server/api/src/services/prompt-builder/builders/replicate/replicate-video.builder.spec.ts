@@ -208,6 +208,22 @@ describe('ReplicateVideoBuilder', () => {
       });
     });
 
+    it('preserves the ordered audio array ahead of the legacy single URL', () => {
+      const result = builder.buildPrompt(
+        MODEL_KEYS.REPLICATE_MINIMAX_H3,
+        {
+          ...baseParams,
+          audioReferences: ['voice-b.mp3', 'recording-a.wav'],
+          audioUrl: 'legacy.mp3',
+        },
+        'Synthetic audio conditioning',
+      );
+      expect(result.reference_audio_urls).toEqual([
+        'voice-b.mp3',
+        'recording-a.wav',
+      ]);
+    });
+
     it('should map first/end frames and bounded multimodal references', () => {
       const references = Array.from(
         { length: 12 },

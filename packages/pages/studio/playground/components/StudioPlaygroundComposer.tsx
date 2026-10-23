@@ -354,9 +354,9 @@ export default function StudioPlaygroundComposer({
     (asset) => asset.role === 'audioReference',
   );
   const isAudioReferenceInvalid =
-    type === 'video' &&
     audioReferences.length > 0 &&
-    (!hasAudioReferences(settings.modelKey) ||
+    (type !== 'video' ||
+      !hasAudioReferences(settings.modelKey) ||
       audioReferences.length > getModelMaxAudioReferences(settings.modelKey) ||
       !attachedAssets.some((asset) =>
         ['reference', 'startFrame', 'endFrame', 'videoReference'].includes(

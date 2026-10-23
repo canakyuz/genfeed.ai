@@ -1872,32 +1872,35 @@ describe('StudioPlaygroundComposer', () => {
     });
     expect(audio).toBeInTheDocument();
   });
-  it('blocks retained audio on a model without audio-reference support', () => {
-    render(
-      <StudioPlaygroundComposer
-        {...baseProps}
-        prompt="Synthetic video"
-        settings={{
-          ...settings,
-          modelKey: MODEL_KEYS.REPLICATE_PRUNAAI_P_VIDEO,
-        }}
-        type="video"
-        attachedAssets={[
-          {
-            id: 'voice',
-            kind: 'audio',
-            role: 'audioReference',
-            source: 'library',
-          },
-        ]}
-      />,
-    );
-    expect(
-      screen.getByText(/Choose an audio-reference model/),
-    ).toBeInTheDocument();
-    promptEditorProps.onSubmit?.();
-    expect(baseProps.onSubmit).not.toHaveBeenCalled();
-  });
+  it.each(['video', 'image'] as const)(
+    'blocks retained audio on an unsupported %s composer',
+    (type) => {
+      render(
+        <StudioPlaygroundComposer
+          {...baseProps}
+          prompt="Synthetic video"
+          settings={{
+            ...settings,
+            modelKey: MODEL_KEYS.REPLICATE_PRUNAAI_P_VIDEO,
+          }}
+          type={type}
+          attachedAssets={[
+            {
+              id: 'voice',
+              kind: 'audio',
+              role: 'audioReference',
+              source: 'library',
+            },
+          ]}
+        />,
+      );
+      expect(
+        screen.getByText(/Choose an audio-reference model/),
+      ).toBeInTheDocument();
+      promptEditorProps.onSubmit?.();
+      expect(baseProps.onSubmit).not.toHaveBeenCalled();
+    },
+  );
   it('offers frame and video-reference slots from one add menu', async () => {
     render(
       <StudioPlaygroundComposer

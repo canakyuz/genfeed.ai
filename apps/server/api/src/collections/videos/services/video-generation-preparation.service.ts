@@ -589,6 +589,9 @@ export class VideoGenerationPreparationService {
     const built = await this.promptBuilderService.buildPrompt(
       model,
       {
+        audioReferences: resolved.audioReferenceUrls
+          ? [...resolved.audioReferenceUrls.values()]
+          : undefined,
         audioUrl: createVideoDto.audioUrl,
         blacklist: createVideoDto.blacklist,
         brand: {
