@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { APP_ROUTES } from '@genfeedai/contracts/constants';
 import { expect, test } from '@playwright/test';
+import { APP_ROUTES } from '../../../../packages/contracts/src/constants/routes.constant';
 
 test.describe('Released image — first sign-up through the UI', () => {
   test('a visitor creates the first account with email and password', async ({
