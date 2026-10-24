@@ -20,6 +20,33 @@ function readFixture(name: string): unknown {
 }
 
 describe('compileMinimaxH3GenerationBrief', () => {
+  it('rejects audio-only references and four audio references', () => {
+    const brief = videoGenerationBriefSchema.parse(
+      readFixture('unbranded.input.json'),
+    );
+    expect(() =>
+      compileMinimaxH3GenerationBrief({
+        brief: { ...brief, references: [], audioReferences: ['voice'] },
+      }),
+    ).toThrow('require an image or video');
+    expect(() =>
+      compileMinimaxH3GenerationBrief({
+        brief: {
+          ...brief,
+          references: [{ assetId: 'image', role: 'subject' }],
+          audioReferences: ['voice-1', 'voice-2', 'voice-3', 'voice-4'],
+        },
+      }),
+    ).toThrow('at most three audio');
+  });
+  it('matches the committed synthetic three-media dispatch fixture', () => {
+    const brief = videoGenerationBriefSchema.parse(
+      readFixture('multimodal.input.json'),
+    );
+    expect(compileMinimaxH3GenerationBrief({ brief }).dispatch).toEqual(
+      readFixture('multimodal.dispatch.json'),
+    );
+  });
   it('locks the unbranded MiniMax H3 mapping and defaults', () => {
     const brief = videoGenerationBriefSchema.parse(
       readFixture('unbranded.input.json'),

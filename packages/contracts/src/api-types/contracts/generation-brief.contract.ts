@@ -233,6 +233,7 @@ export const videoGenerationBriefSchema = z
   .object({
     ...generationBriefBaseShape,
     intent: videoGenerationBriefIntentSchema,
+    audioReferences: z.array(generationBriefIdSchema).max(3).optional(),
     mediaKind: z.literal('video'),
     output: videoGenerationBriefOutputSchema,
     references: z.array(generationBriefReferenceSchema).max(20).default([]),

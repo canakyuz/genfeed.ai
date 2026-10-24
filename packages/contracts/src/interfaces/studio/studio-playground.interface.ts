@@ -319,7 +319,8 @@ export type StudioPlaygroundReferenceRole =
   | 'editMask'
   | 'startFrame'
   | 'endFrame'
-  | 'videoReference';
+  | 'videoReference'
+  | 'audioReference';
 
 /** One Library asset the composer draft points at, with its role. */
 export interface StudioGenerateDraftReference {

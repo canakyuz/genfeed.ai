@@ -38,6 +38,7 @@ interface ResolvedMinimaxH3References {
   lastFrameAssetId?: string;
   referenceImageAssetIds: string[];
   referenceVideoAssetIds: string[];
+  referenceAudioAssetIds: string[];
 }
 
 function resolveAspectRatio(brief: VideoGenerationBrief): string {
@@ -68,6 +69,7 @@ function resolveReferences(
   let lastFrameAssetId: string | undefined;
   const referenceImageAssetIds: string[] = [];
   const referenceVideoAssetIds: string[] = [];
+  const referenceAudioAssetIds = [...(brief.audioReferences ?? [])];
 
   for (const reference of brief.references) {
     if (reference.role === 'reference_video') {
@@ -105,6 +107,7 @@ function resolveReferences(
     lastFrameAssetId,
     referenceImageAssetIds,
     referenceVideoAssetIds,
+    referenceAudioAssetIds,
   };
 }
 
@@ -218,6 +221,7 @@ export function compileMinimaxH3GenerationBrief(
     lastFrameAssetId,
     referenceImageAssetIds,
     referenceVideoAssetIds,
+    referenceAudioAssetIds,
   } = resolveReferences(input.brief, policy, omitted);
   if (lastFrameAssetId && !firstFrameAssetId) {
     throw new GenerationBriefCompileError(
@@ -246,6 +250,33 @@ export function compileMinimaxH3GenerationBrief(
     );
   }
 
+  if (
+    referenceAudioAssetIds.length >
+    MINIMAX_H3_CAPABILITY_PROFILE.maxAudioReferences
+  ) {
+    throw new GenerationBriefCompileError(
+      'MiniMax H3 accepts at most three audio references.',
+      'invalid_brief',
+    );
+  }
+  if (
+    referenceAudioAssetIds.length &&
+    !firstFrameAssetId &&
+    !lastFrameAssetId &&
+    !referenceImageAssetIds.length &&
+    !referenceVideoAssetIds.length
+  ) {
+    throw new GenerationBriefCompileError(
+      'MiniMax H3 audio references require an image or video reference.',
+      'invalid_brief',
+    );
+  }
+  if (input.brief.references.length + referenceAudioAssetIds.length > 12) {
+    throw new GenerationBriefCompileError(
+      'MiniMax H3 accepts at most twelve reference files.',
+      'invalid_brief',
+    );
+  }
   const defaults = MINIMAX_H3_CAPABILITY_PROFILE.defaults;
   const requestedResolution = input.brief.output.resolution;
   const resolution =
@@ -265,7 +296,7 @@ export function compileMinimaxH3GenerationBrief(
     duration,
     prompt,
     ratio: firstFrameAssetId !== undefined ? 'adaptive' : aspectRatio,
-    reference_audio_urls: [],
+    reference_audio_urls: referenceAudioAssetIds,
     reference_image_urls: referenceImageAssetIds,
     reference_video_urls: referenceVideoAssetIds,
     resolution,
@@ -302,6 +333,7 @@ export function compileMinimaxH3GenerationBrief(
     ...(firstFrameAssetId !== undefined ? ['references.first_frame'] : []),
     ...(lastFrameAssetId !== undefined ? ['references.last_frame'] : []),
     ...(referenceImageAssetIds.length > 0 ? ['references.additional'] : []),
+    ...(referenceAudioAssetIds.length > 0 ? ['audioReferences'] : []),
     ...(referenceVideoAssetIds.length > 0
       ? ['references.reference_video']
       : []),
@@ -324,9 +356,10 @@ export function compileMinimaxH3GenerationBrief(
     },
     profileId: MINIMAX_H3_CAPABILITY_PROFILE_ID,
     profileVersion: MINIMAX_H3_CAPABILITY_PROFILE_VERSION,
-    referenceAssetIds: input.brief.references.map(
-      (reference) => reference.assetId,
-    ),
+    referenceAssetIds: [
+      ...input.brief.references.map((reference) => reference.assetId),
+      ...referenceAudioAssetIds,
+    ],
     status: 'compiled' as const,
   };
 

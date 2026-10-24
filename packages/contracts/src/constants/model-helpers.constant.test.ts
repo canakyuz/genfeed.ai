@@ -5,6 +5,7 @@ import {
   getModelDurationLimits,
   getModelDurations,
   getModelDurationsForResolution,
+  getModelMaxAudioReferences,
   getModelMaxOutputs,
   getModelMaxReferences,
   getModelMaxVideoReferences,
@@ -15,6 +16,7 @@ import {
   hasAnyInterpolation,
   hasAnyResolutionOptions,
   hasAnySpeech,
+  hasAudioReferences,
   hasAudioToggle,
   hasDurationEditing,
   hasEndFrame,
@@ -36,6 +38,14 @@ import {
 const UNKNOWN = 'unknown/model';
 
 describe('model-helpers.constant', () => {
+  it('enables audio references only for the reviewed H3 model', () => {
+    expect(hasAudioReferences(MODEL_KEYS.REPLICATE_MINIMAX_H3)).toBe(true);
+    expect(getModelMaxAudioReferences(MODEL_KEYS.REPLICATE_MINIMAX_H3)).toBe(3);
+    expect(hasAudioReferences(UNKNOWN)).toBe(false);
+    expect(
+      getModelMaxAudioReferences(MODEL_KEYS.REPLICATE_BYTEDANCE_SEEDANCE_2_5),
+    ).toBe(0);
+  });
   describe('getModelMaxOutputs', () => {
     it('returns 4 for unknown model', () => {
       expect(getModelMaxOutputs(UNKNOWN)).toBe(4);

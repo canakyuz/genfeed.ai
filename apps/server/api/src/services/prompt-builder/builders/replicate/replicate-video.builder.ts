@@ -722,7 +722,8 @@ export class ReplicateVideoBuilder extends BaseReplicateBuilder {
       duration,
       prompt: promptText,
       ratio,
-      reference_audio_urls: params.audioUrl ? [params.audioUrl] : [],
+      reference_audio_urls:
+        params.audioReferences ?? (params.audioUrl ? [params.audioUrl] : []),
       reference_image_urls: params.references?.slice(1, 10) ?? [],
       reference_video_urls: params.video ? [params.video] : [],
       resolution,

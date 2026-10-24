@@ -34,6 +34,28 @@ function createMockModel(overrides: Partial<IModel> = {}): IModel {
 }
 
 describe('getModelCapabilityFromDoc', () => {
+  it('preserves reviewed audio support with DB-populated capability fields', () => {
+    expect(
+      getModelCapability(
+        createMockModel({
+          category: ModelCategory.VIDEO,
+          key: MODEL_KEYS.REPLICATE_MINIMAX_H3,
+          maxOutputs: 1,
+        }),
+      ),
+    ).toMatchObject({ hasAudioReferences: true, maxAudioReferences: 3 });
+    expect(
+      getModelCapability(
+        createMockModel({
+          category: ModelCategory.VIDEO,
+          key: 'unknown/video',
+          maxOutputs: 1,
+          hasAudioReferences: true,
+          maxAudioReferences: 9,
+        }),
+      ),
+    ).toMatchObject({ hasAudioReferences: false, maxAudioReferences: 0 });
+  });
   it('should return correct shape from IModel with all fields populated', () => {
     const model = createMockModel({
       aspectRatios: ['1:1', '16:9'],
