@@ -15,19 +15,21 @@ import {
   queueLateHoldCharge,
   readPositiveSeconds,
 } from '@api/collections/credits/services/generation-duration-settlement';
+import {
+  abandonedReleaseReason,
+  isFailureConfirmed,
+} from '@api/collections/credits/services/generation-hold-evidence.util';
 import { GenerationHoldRecoveryService } from '@api/collections/credits/services/generation-hold-recovery.service';
 import {
   type HoldReconcileStats,
   pollHoldAtCeiling,
 } from '@api/collections/credits/services/generation-hold-recovery-backoff.util';
 import { GenerationQuoteGroupService } from '@api/collections/credits/services/generation-quote-group.service';
-import { BusinessLogicException } from '@api/exceptions/business-logic.exception';
 import type { ReservationCreditsConfig } from '@api/helpers/utils/credits/generation-credit-reservation.util';
 import {
   generationSubmissionIntentSchema,
   persistSubmissionFailure,
   persistSubmissionRejection,
-  submittedGenerationMetadataSchema,
 } from '@api/helpers/utils/credits/persist-submission-failure.util';
 import { CreditDeductionQueueService } from '@api/queues/credit-deduction/credit-deduction-queue.service';
 import { MediaGenerationReceiptsService } from '@api/services/media-generation-receipts/media-generation-receipts.service';
@@ -806,6 +808,7 @@ export class GenerationBillingService {
     // tenant-scope-ignore: ids come from the holds above, matched by org below
     const ingredients = await this.prisma.ingredient.findMany({
       select: {
+        generationError: true,
         id: true,
         isDeleted: true,
         organizationId: true,
@@ -850,16 +853,17 @@ export class GenerationBillingService {
         } else if (
           generationSubmissionIntentSchema.safeParse(hold.metadata).success
         ) {
-          const proof = submittedGenerationMetadataSchema.safeParse(
-            hold.metadata,
-          );
-          const evidence = proof.success ? proof.data : null;
-          const isFailureConfirmed =
-            evidence?.assetId === ingredientId &&
-            evidence.confirmedFailure?.ingredientId === ingredientId &&
-            evidence.confirmedFailure.provider ===
-              evidence.submissionIntent.provider;
           const intent = generationSubmissionIntentSchema.parse(hold.metadata);
+          const reason = abandonedReleaseReason(
+            ingredient,
+            intent.submissionIntent.provider,
+          );
+          if (reason) {
+            await this.releaseOutput(ingredientId, hold.organizationId, reason);
+            acted += 1;
+            continue;
+          }
+          const isConfirmed = isFailureConfirmed(hold.metadata, ingredientId);
           const isPastCeiling =
             intent.submissionIntent.provider !== 'crun' &&
             hold.expiresAt.getTime() +
@@ -871,7 +875,7 @@ export class GenerationBillingService {
           // provider, a hold still unproven at the ceiling stops locking the
           // wallet: an output that completes afterwards is charged late
           // (#5886), so expiry cannot give it away.
-          if (isPastCeiling && !isFailureConfirmed) {
+          if (isPastCeiling && !isConfirmed) {
             const polled = await pollHoldAtCeiling(
               {
                 holdRecovery: this.holdRecovery,
@@ -884,7 +888,7 @@ export class GenerationBillingService {
             );
             if (polled === undefined) continue;
             acted += polled;
-          } else if (isFailureConfirmed) {
+          } else if (isConfirmed) {
             await this.credits.releaseReservation({
               organizationId: hold.organizationId,
 
@@ -988,13 +992,4 @@ export class GenerationBillingService {
       workloadType: MEDIA_GENERATION_WORKLOAD_TYPE,
     });
   }
-}
-
-export function requirePositiveCredits(credits: number): number {
-  if (!Number.isFinite(credits) || !(credits > 0)) {
-    throw new BusinessLogicException(
-      'Generation credits must be a positive number',
-    );
-  }
-  return credits;
 }
