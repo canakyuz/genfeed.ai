@@ -13,6 +13,7 @@ import {
   buildBetterAuthOrganizationOptions,
   buildBetterAuthUserDatabaseHooks,
   buildRateLimitStorage,
+  CAPTCHA_PROTECTED_ENDPOINTS,
   createBetterAuthInstance,
   RATE_LIMIT_TTL_SECONDS,
   resolveBetterAuthJwtAccess,
@@ -29,9 +30,12 @@ type PrismaForBetterAuth = ICreateBetterAuthOptions['prisma'];
 
 function requireUserCreateHooks(
   onUserCreated?: ICreateBetterAuthOptions['onUserCreated'],
+  shouldBlockDisposableEmail?: ICreateBetterAuthOptions['shouldBlockDisposableEmail'],
 ) {
-  const createHooks =
-    buildBetterAuthUserDatabaseHooks(onUserCreated).user?.create;
+  const createHooks = buildBetterAuthUserDatabaseHooks(
+    onUserCreated,
+    shouldBlockDisposableEmail,
+  ).user?.create;
   const before = createHooks?.before;
   const after = createHooks?.after;
   if (!before || !after) {
@@ -430,6 +434,23 @@ describe('buildBetterAuthDashPlugin', () => {
   );
 });
 
+describe('Turnstile signup captcha', () => {
+  it('protects only the endpoints that can create an account', () => {
+    expect(CAPTCHA_PROTECTED_ENDPOINTS).toEqual([
+      '/sign-up/email',
+      '/sign-in/magic-link',
+    ]);
+  });
+
+  it('installs the captcha plugin only when a secret is configured', () => {
+    const source = createBetterAuthInstance.toString();
+
+    expect(source).toMatch(/turnstileSecretKey\s*\?/);
+    expect(source).toContain('cloudflare-turnstile');
+    expect(source).toContain('CAPTCHA_PROTECTED_ENDPOINTS');
+  });
+});
+
 describe('buildBetterAuthUserDatabaseHooks', () => {
   it('generates a URL-safe handle when first-time user creation has none', async () => {
     const hooks = requireUserCreateHooks();
@@ -445,6 +466,34 @@ describe('buildBetterAuthUserDatabaseHooks', () => {
         handle: expect.stringMatching(/^new-user-test-[0-9a-f]{8}$/),
         name: 'New User',
       }),
+    });
+  });
+
+  it('refuses a throwaway email when disposable signups are blocked', async () => {
+    const hooks = requireUserCreateHooks(undefined, () => true);
+
+    await expect(
+      hooks.before({ email: 'farmer@mailinator.com' } as never, null),
+    ).rejects.toMatchObject({ body: { code: 'DISPOSABLE_EMAIL' } });
+  });
+
+  it('lets a throwaway email through where the free trial does not exist', async () => {
+    const hooks = requireUserCreateHooks(undefined, () => false);
+
+    await expect(
+      hooks.before({ email: 'farmer@mailinator.com' } as never, null),
+    ).resolves.toEqual({
+      data: expect.objectContaining({ email: 'farmer@mailinator.com' }),
+    });
+  });
+
+  it('still accepts an ordinary email when disposable signups are blocked', async () => {
+    const hooks = requireUserCreateHooks(undefined, () => true);
+
+    await expect(
+      hooks.before({ email: 'person@genfeed.ai' } as never, null),
+    ).resolves.toEqual({
+      data: expect.objectContaining({ email: 'person@genfeed.ai' }),
     });
   });
 
@@ -711,8 +760,8 @@ describe('createBetterAuthInstance source', () => {
 
     expect(source).toContain('additionalFields');
     expect(source).toMatch(/handle:\s*\{/);
-    expect(source).toContain(
-      'databaseHooks: buildBetterAuthUserDatabaseHooks(onUserCreated)',
+    expect(source).toMatch(
+      /databaseHooks:\s*buildBetterAuthUserDatabaseHooks\(\s*onUserCreated/,
     );
   });
 

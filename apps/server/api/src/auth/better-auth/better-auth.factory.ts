@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isDisposableEmail } from '@api/auth/shared/signup-email-policy.util';
 import { type DashOptions, dash } from '@better-auth/infra';
 import { PlatformRole } from '@genfeedai/contracts';
 import type { IBetterAuthJwtUserPayloadSource } from '@genfeedai/contracts/interfaces';
@@ -13,6 +14,7 @@ import { createAuthMiddleware } from 'better-auth/api';
 import {
   type AdminOptions,
   admin,
+  captcha,
   jwt,
   type MagicLinkOptions,
   magicLink,
@@ -61,6 +63,20 @@ type BetterAuthUserAfterPayload = {
   email?: string | null;
   id: string;
 };
+
+/**
+ * Endpoints that can create an account: email/password sign-up and the magic
+ * link (which creates the user on first use). Social sign-in is left alone —
+ * it already requires a real provider account — and so is email/password
+ * sign-in, so returning users never see a challenge.
+ */
+export const CAPTCHA_PROTECTED_ENDPOINTS = [
+  '/sign-up/email',
+  '/sign-in/magic-link',
+];
+
+export const DISPOSABLE_EMAIL_MESSAGE =
+  'Temporary email addresses are not supported. Sign up with a permanent address.';
 
 export const SIGN_UP_MAGIC_LINK_EXISTING_USER_MESSAGE =
   'An account already exists for this email. Sign in instead.';
@@ -513,12 +529,25 @@ function generateHandle(input: {
  */
 export function buildBetterAuthUserDatabaseHooks(
   onUserCreated?: ICreateBetterAuthOptions['onUserCreated'],
+  shouldBlockDisposableEmail?: ICreateBetterAuthOptions['shouldBlockDisposableEmail'],
 ): BetterAuthDatabaseHooks {
   return {
     user: {
       create: {
         before: async (user) => {
           const typed = user as BetterAuthUserBeforePayload;
+          // Throwaway inboxes mint free signups to farm trial credits; refuse
+          // them before the row exists, whichever way the account is created.
+          if (
+            typed.email &&
+            shouldBlockDisposableEmail?.() &&
+            isDisposableEmail(typed.email)
+          ) {
+            throw APIError.from('BAD_REQUEST', {
+              code: 'DISPOSABLE_EMAIL',
+              message: DISPOSABLE_EMAIL_MESSAGE,
+            });
+          }
           if (typed.handle) {
             return { data: user };
           }
@@ -719,6 +748,9 @@ export function createBetterAuthInstance(options: ICreateBetterAuthOptions) {
     sendResetPassword,
     sendVerificationEmail,
     onUserCreated,
+    onEmailVerified,
+    shouldBlockDisposableEmail,
+    turnstileSecretKey,
   } = options;
   const socialProviders = {
     ...(google
@@ -771,6 +803,18 @@ export function createBetterAuthInstance(options: ICreateBetterAuthOptions) {
       },
     },
     emailVerification: {
+      // Free signup credits wait for a verified mailbox; credit them the
+      // moment the link is followed. Awaited so the grant lands before the
+      // verified user is redirected into the app.
+      afterEmailVerification: async (user, request) => {
+        // The email/password signup has no session until the link is
+        // followed, so the verification request is the first place its IP is
+        // seen. The mount middleware pins x-forwarded-for to the real client.
+        const ipAddress =
+          request?.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+          null;
+        await onEmailVerified?.({ ipAddress, userId: user.id });
+      },
       autoSignInAfterVerification: true,
       sendOnSignIn: false,
       sendOnSignUp: false,
@@ -834,7 +878,10 @@ export function createBetterAuthInstance(options: ICreateBetterAuthOptions) {
         },
       },
     },
-    databaseHooks: buildBetterAuthUserDatabaseHooks(onUserCreated),
+    databaseHooks: buildBetterAuthUserDatabaseHooks(
+      onUserCreated,
+      shouldBlockDisposableEmail,
+    ),
     plugins: [
       ...(apiKey ? [buildBetterAuthDashPlugin(apiKey)] : []),
       magicLink(
@@ -871,6 +918,17 @@ export function createBetterAuthInstance(options: ICreateBetterAuthOptions) {
       }),
       admin(buildBetterAuthAdminOptions()),
       desktopSession(),
+      // Invisible Turnstile on the endpoints that create accounts. Off until a
+      // secret is configured, so deployments without one are unchanged.
+      ...(turnstileSecretKey
+        ? [
+            captcha({
+              endpoints: CAPTCHA_PROTECTED_ENDPOINTS,
+              provider: 'cloudflare-turnstile',
+              secretKey: turnstileSecretKey,
+            }),
+          ]
+        : []),
     ],
   });
 }
