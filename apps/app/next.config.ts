@@ -9,6 +9,7 @@ import {
   createBrandAppRoute,
   createOrganizationAppRoute,
   PERSONAL_SETTINGS_CHILD_SEGMENTS,
+  STUDIO_APP_ROUTE_PREFIXES,
 } from '@genfeedai/contracts/constants/routes.constant';
 import { createAppNextConfig } from '@genfeedai/next-config';
 import { withSerwist } from '@serwist/turbopack';
@@ -90,7 +91,7 @@ const resolvedApiBaseUrl = (
 const selfHostedBrandRoutePrefixes = [
   APP_ROUTE_PREFIXES.WORKSPACE,
   APP_ROUTE_PREFIXES.AGENT,
-  APP_ROUTE_PREFIXES.STUDIO,
+  ...STUDIO_APP_ROUTE_PREFIXES,
   APP_ROUTE_PREFIXES.PUBLISHING,
   APP_ROUTE_PREFIXES.ANALYTICS,
   APP_ROUTE_PREFIXES.AUTOMATION,
@@ -424,8 +425,8 @@ const config = createAppNextConfig({
       ),
     })),
     // Complete-path homes: bare `/[app]` → a named child. Library's home is
-    // the asset browser, not an overview tile grid. Studio has no root: each
-    // Studio tool is its own app (#5502).
+    // the asset browser, not an overview tile grid. The former Studio apps
+    // have no parent: each is its own app (#5502).
     ...appHomeRedirects(APP_ROUTES.WORKSPACE.ROOT),
     ...appHomeRedirects(APP_ROUTES.AUTOMATION.ROOT),
     ...appHomeRedirects(APP_ROUTES.LIBRARY.ROOT),

@@ -2,7 +2,6 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  APP_ROUTE_PREFIXES,
   APP_ROUTES,
   createBrandAppRoute,
 } from '@genfeedai/contracts/constants';
@@ -514,7 +513,7 @@ describe('app next.config', () => {
   });
 
   it('keeps no legacy redirect surface for the retired studio tabs', async () => {
-    // The one-off tabs came back as `/studio/playground`, so the 28 legacy
+    // The one-off tabs came back as `/playground`, so the 28 legacy
     // `/studio/<type>` rules were hard-cut rather than repointed — there is no
     // redirect table to maintain for them.
     const redirects = (await config.redirects?.()) ?? [];
@@ -527,15 +526,30 @@ describe('app next.config', () => {
     expect(legacyStudioSources).toEqual([]);
   });
 
-  it('does not define a broad studio wildcard redirect', async () => {
-    const redirects = await config.redirects?.();
-    const studioWildcards = redirects?.filter(
-      (redirect) =>
-        redirect.source.startsWith(APP_ROUTE_PREFIXES.STUDIO) &&
-        redirect.source.includes(':path*'),
-    );
+  it('keeps no redirect from the old /studio/<app> paths (hard cut)', async () => {
+    const redirects = (await config.redirects?.()) ?? [];
 
-    expect(studioWildcards).toEqual([]);
+    expect(
+      redirects.filter((redirect) => redirect.source.includes('/studio')),
+    ).toEqual([]);
+  });
+
+  it.each([
+    '/studio/turbo',
+    '/studio/turbo/new',
+    '/acme/brand/studio/turbo/abc123',
+    '/acme/brand/studio/storyboard',
+    '/acme/brand/studio/playground',
+    '/acme/~/studio/editor/project-1',
+    '/studio',
+    '/v1/tags/studio/turbo',
+  ])('does not redirect the retired path %s', async (source) => {
+    const response = await unstable_getResponseFromNextConfig({
+      url: `https://example.com${source}`,
+      nextConfig: { redirects: config.redirects },
+    });
+
+    expect(response.status).not.toBe(308);
   });
 
   it('sends X-Robots-Tag: noindex, nofollow on every studio route', async () => {
