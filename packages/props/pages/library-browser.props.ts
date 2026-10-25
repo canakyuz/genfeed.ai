@@ -122,6 +122,8 @@ export interface LibraryActiveFilter {
 }
 
 export interface LibraryFilterChoice {
+  count?: number;
+  isLiteral?: boolean;
   label: string;
   value: string;
 }
