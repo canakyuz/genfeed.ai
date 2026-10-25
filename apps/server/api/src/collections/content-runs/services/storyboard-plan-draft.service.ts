@@ -45,7 +45,9 @@ export class StoryboardPlanDraftService {
       );
     try {
       const response = await this.openrouter.chatCompletion({
-        model: LLM_DEFAULTS.background,
+        // Every request is ZDR-only; `background` (Gemini 2.5 Flash Lite) has no
+        // ZDR endpoint on OpenRouter, so it 404s with "No endpoints found".
+        model: LLM_DEFAULTS.fastText,
         max_tokens: 4096,
         messages: buildStoryboardDraftMessages(request),
         response_format: {
