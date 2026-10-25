@@ -199,7 +199,8 @@
     "eval:content:smoke": "bun scripts/content-eval/smoke/run-smoke.ts",
     "test:content-eval": "vitest run --config scripts/content-eval/vitest.config.ts",
     "test:agent-eval": "vitest run --config scripts/agent-eval/vitest.config.ts",
-    "verify:agent-smoke-evidence": "bun run scripts/agent-eval/verify-live-evidence.ts"
+    "verify:agent-smoke-evidence": "bun run scripts/agent-eval/verify-live-evidence.ts",
+    "prototype:agent-sidebar": "bun apps/app/src/components/workspace-shell/agent-sidebar-prototype/preview.mjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
