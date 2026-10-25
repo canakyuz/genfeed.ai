@@ -103,6 +103,7 @@ import {
 } from '@/lib/workspace-shell/workspace-shell-transition.util';
 import { resolveWorkspaceSurfaceLaunch } from '@/lib/workspace-shell/workspace-surface-launcher';
 import AgentDock from './AgentDock';
+import type { PrototypeAsset } from './agent-sidebar-prototype/AgentSidebarPrototype';
 import { NEW_CHAT_TAB_ID, useAgentDockThreads } from './use-agent-dock-threads';
 import { useIsCompactViewport } from './use-compact-viewport';
 import { useConversationScopeControls } from './use-conversation-scope-controls';
@@ -131,6 +132,11 @@ const loadConversationDockPanel = () =>
 const ConversationDockPanel = dynamic(loadConversationDockPanel, {
   loading: () => null,
 });
+
+const AgentSidebarPrototype = dynamic(
+  () => import('./agent-sidebar-prototype/AgentSidebarPrototype'),
+  { ssr: false },
+);
 
 const DOCK_PANEL_PREFETCH_TIMEOUT_MS = 8000;
 
@@ -649,7 +655,13 @@ function UniversalWorkspaceShellContent({
   // Below `xl` the agent is a bottom sheet, so only the rail counts here.
   const isAgentPanelOpen =
     isAgentDockHost && isAgentDockOpen && !isCompactViewport;
-  const isPanelOpen = isInspectorOpen || isAgentPanelOpen;
+  const [isPrototypeDismissed, setIsPrototypeDismissed] = useState(false);
+  const isSidebarPrototype =
+    process.env.NODE_ENV !== 'production' &&
+    normalizedPathname === '/library/assets' &&
+    searchParams.get('prototype') === 'agent-sidebar' &&
+    !isPrototypeDismissed;
+  const isPanelOpen = isInspectorOpen || isAgentPanelOpen || isSidebarPrototype;
   const [panelTabPreference, setPanelTabPreference] =
     useState<WorkspacePanelTab>('agent');
   const activePanelTab: WorkspacePanelTab =
@@ -1228,76 +1240,127 @@ function UniversalWorkspaceShellContent({
                 width: expandedInspectorWidth,
               }}
             >
-              <WorkspacePanelTabs
-                activeChatId={dockThreads.activeThreadId ?? NEW_CHAT_TAB_ID}
-                activeTab={activePanelTab}
-                chatTabs={isAgentDockHost ? dockThreads.chatTabs : []}
-                hasDetails={Boolean(activeContextSidebar)}
-                onClose={handleClosePanel}
-                onCloseChat={
-                  hasClosableChat ? dockThreads.closeChatTab : undefined
-                }
-                onNewThread={dockThreads.startThread}
-                onOpenFullPage={handleOpenFullConversation}
-                onSelectChat={handleSelectChat}
-                onSelectTab={handleSelectPanelTab}
-                threadMenu={{
-                  activeThreadId: dockThreads.activeThreadId,
-                  isThreadListLoading: dockThreads.isThreadListLoading,
-                  onNewThread: dockThreads.startThread,
-                  onSelectThread: (threadId) => {
-                    void dockThreads.selectThread(threadId);
-                  },
-                  threadTitle: activeThread?.title,
-                  threads: dockThreads.threads,
-                }}
-              />
-              {isAgentDockHost && agentDock ? (
-                <AgentDock
-                  composerSlotRef={
-                    state === 'overlay' ? undefined : setComposerPortalTarget
+              {isSidebarPrototype ? (
+                <AgentSidebarPrototype
+                  selection={
+                    resolvedWorkspaceSurfaceAdapter?.artifactReferences.length
+                      ? resolvedWorkspaceSurfaceAdapter.artifactReferences.map<PrototypeAsset>(
+                          (reference, index) => ({
+                            kind: reference.kind,
+                            recordId: reference.recordId,
+                            label:
+                              activeContextSidebar?.selection?.id ===
+                              reference.recordId
+                                ? (activeContextSidebar.selection.title ??
+                                  'Selected asset')
+                                : `Selected ${reference.kind} ${index + 1}`,
+                            media: 'unknown',
+                          }),
+                        )
+                      : activeContextSidebar?.selection
+                        ? [
+                            {
+                              kind: 'asset',
+                              recordId: activeContextSidebar.selection.id,
+                              label:
+                                activeContextSidebar.selection.title ??
+                                'Selected asset',
+                              media: 'unknown',
+                            },
+                          ]
+                        : []
                   }
-                  dock={agentDock}
-                  isCompact={isCompactViewport}
-                  isTabActive={activePanelTab === 'agent'}
-                  activeThreadId={dockThreads.activeThreadId}
-                  isThreadListLoading={dockThreads.isThreadListLoading}
-                  onNewThread={dockThreads.startThread}
-                  onOpenFullPage={handleOpenFullConversation}
-                  onSelectThread={(threadId) => {
-                    void dockThreads.selectThread(threadId);
+                  onClose={() => {
+                    const nextParams = new URLSearchParams(searchParamsString);
+                    nextParams.delete('prototype');
+                    const nextQuery = nextParams.toString();
+                    replace(
+                      `${rawPathname}${nextQuery ? `?${nextQuery}` : ''}`,
+                      { scroll: false },
+                    );
+                    setIsPrototypeDismissed(true);
+                    handleClosePanel();
                   }}
-                  // Organization and brand are switched from the shell chrome;
-                  // the panel only surfaces scope notices and page context.
-                  scopeControls={
-                    <>
-                      {conversationScope.scopeStatus}
-                      {composerScopeControls}
-                      {effectiveSurfaceAdapter?.composerContext}
-                    </>
-                  }
-                  threadTitle={activeThread?.title}
-                  threads={dockThreads.threads}
-                >
-                  {hasOpenedAgentDock ? (
-                    <ConversationDockPanel apiService={agentApiService} />
-                  ) : null}
-                </AgentDock>
-              ) : null}
-              {contextSidebar ? (
-                <div
-                  aria-label={translateSidePanel('details')}
-                  className="flex min-h-0 flex-1 flex-col"
-                  hidden={!activeContextSidebar || activePanelTab !== 'details'}
-                  id="workspace-details-panel"
-                  role="tabpanel"
-                >
-                  <WorkspaceContextSidebarRail
-                    contextSidebar={contextSidebar}
-                    isTopbarHosted
+                  onOpenFullPage={handleOpenFullConversation}
+                />
+              ) : (
+                <>
+                  <WorkspacePanelTabs
+                    activeChatId={dockThreads.activeThreadId ?? NEW_CHAT_TAB_ID}
+                    activeTab={activePanelTab}
+                    chatTabs={isAgentDockHost ? dockThreads.chatTabs : []}
+                    hasDetails={Boolean(activeContextSidebar)}
+                    onClose={handleClosePanel}
+                    onCloseChat={
+                      hasClosableChat ? dockThreads.closeChatTab : undefined
+                    }
+                    onNewThread={dockThreads.startThread}
+                    onOpenFullPage={handleOpenFullConversation}
+                    onSelectChat={handleSelectChat}
+                    onSelectTab={handleSelectPanelTab}
+                    threadMenu={{
+                      activeThreadId: dockThreads.activeThreadId,
+                      isThreadListLoading: dockThreads.isThreadListLoading,
+                      onNewThread: dockThreads.startThread,
+                      onSelectThread: (threadId) => {
+                        void dockThreads.selectThread(threadId);
+                      },
+                      threadTitle: activeThread?.title,
+                      threads: dockThreads.threads,
+                    }}
                   />
-                </div>
-              ) : null}
+                  {isAgentDockHost && agentDock ? (
+                    <AgentDock
+                      composerSlotRef={
+                        state === 'overlay'
+                          ? undefined
+                          : setComposerPortalTarget
+                      }
+                      dock={agentDock}
+                      isCompact={isCompactViewport}
+                      isTabActive={activePanelTab === 'agent'}
+                      activeThreadId={dockThreads.activeThreadId}
+                      isThreadListLoading={dockThreads.isThreadListLoading}
+                      onNewThread={dockThreads.startThread}
+                      onOpenFullPage={handleOpenFullConversation}
+                      onSelectThread={(threadId) => {
+                        void dockThreads.selectThread(threadId);
+                      }}
+                      // Organization and brand are switched from the shell chrome;
+                      // the panel only surfaces scope notices and page context.
+                      scopeControls={
+                        <>
+                          {conversationScope.scopeStatus}
+                          {composerScopeControls}
+                          {effectiveSurfaceAdapter?.composerContext}
+                        </>
+                      }
+                      threadTitle={activeThread?.title}
+                      threads={dockThreads.threads}
+                    >
+                      {hasOpenedAgentDock ? (
+                        <ConversationDockPanel apiService={agentApiService} />
+                      ) : null}
+                    </AgentDock>
+                  ) : null}
+                  {contextSidebar ? (
+                    <div
+                      aria-label={translateSidePanel('details')}
+                      className="flex min-h-0 flex-1 flex-col"
+                      hidden={
+                        !activeContextSidebar || activePanelTab !== 'details'
+                      }
+                      id="workspace-details-panel"
+                      role="tabpanel"
+                    >
+                      <WorkspaceContextSidebarRail
+                        contextSidebar={contextSidebar}
+                        isTopbarHosted
+                      />
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
           </aside>
         </div>
