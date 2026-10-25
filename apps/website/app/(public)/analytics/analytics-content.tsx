@@ -132,13 +132,13 @@ export default function AnalyticsContent() {
         {/* Highlight Card */}
         <section className="gsap-section max-w-4xl mx-auto pb-16 px-6">
           <div className="border border-[var(--gen-accent-border)] bg-[var(--gen-accent-bg)] p-8">
-            <div className="flex flex-row flex-col md:flex-row items-center gap-8">
+            <div className="flex flex-col items-center gap-8 md:flex-row">
               <div className="flex-shrink-0">
                 <div className="flex size-20 items-center justify-center border border-[var(--gen-accent-border)] bg-[var(--gen-accent-tint)]">
                   <ChartColumn className="size-10 text-surface" />
                 </div>
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex w-full min-w-0 flex-col gap-3">
                 <Heading as="h3" className="text-2xl font-bold">
                   Learn From Your Published Content
                 </Heading>
@@ -177,10 +177,10 @@ export default function AnalyticsContent() {
                       <Icon className="size-6 text-[color:hsl(var(--gen-accent))]" />
                     </div>
                   </div>
-                  <Text className="text-sm font-bold text-surface">
+                  <Text as="p" className="text-sm font-bold text-surface">
                     {metric.label}
                   </Text>
-                  <Text className="text-xs text-surface/65">
+                  <Text as="p" className="text-xs text-surface/65">
                     {metric.value}
                   </Text>
                 </div>

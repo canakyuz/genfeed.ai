@@ -130,13 +130,13 @@ export default function ResearchContent() {
         {/* Highlight Card */}
         <section className="gsap-section max-w-4xl mx-auto pb-16 px-6">
           <div className="border border-[var(--gen-accent-border)] bg-[var(--gen-accent-bg)] p-8">
-            <div className="flex flex-row flex-col md:flex-row items-center gap-8">
+            <div className="flex flex-col items-center gap-8 md:flex-row">
               <div className="flex-shrink-0">
                 <div className="flex size-20 items-center justify-center border border-[var(--gen-accent-border)] bg-[var(--gen-accent-tint)]">
                   <Sparkles className="size-10 text-surface" />
                 </div>
               </div>
-              <div className="flex flex-col gap-3">
+              <div className="flex w-full min-w-0 flex-col gap-3">
                 <Heading as="h3" className="text-2xl font-bold">
                   Every Signal, One Workspace
                 </Heading>
