@@ -13,7 +13,6 @@ import {
 } from '@genfeedai/contracts/constants/routes.constant';
 import { createAppNextConfig } from '@genfeedai/next-config';
 import { withSerwist } from '@serwist/turbopack';
-import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 // Deterministic, empty-string-safe build id. A plain `??` chain does NOT skip
@@ -153,32 +152,6 @@ function appHomeRedirects(
   ];
 }
 
-type AppRedirect = Awaited<
-  ReturnType<NonNullable<NextConfig['redirects']>>
->[number];
-
-const FILTER_ROUTE_SCOPES = [
-  '',
-  '/:orgSlug/:brandSlug',
-  '/:orgSlug/~',
-] as const;
-
-const filterRouteRedirects: AppRedirect[] = [
-  ...[
-    ['/settings/models/all', '/settings/models?type=all'],
-    ['/settings/models/images', '/settings/models?type=images'],
-    ['/settings/models/videos', '/settings/models?type=videos'],
-    ['/settings/models/text', '/settings/models?type=text'],
-    ['/settings/models/trainings', '/settings/models?type=trainings'],
-  ].flatMap(([source, destination]) =>
-    FILTER_ROUTE_SCOPES.map((prefix) => ({
-      source: `${prefix}${source}`,
-      destination: `${prefix}${destination}`,
-      permanent: true,
-    })),
-  ),
-];
-
 const config = createAppNextConfig({
   // Defense in depth alongside app/robots.txt/route.ts and root metadata: the
   // header also covers responses that carry no HTML head (API routes, redirects,
@@ -228,7 +201,6 @@ const config = createAppNextConfig({
       source: `${APP_ROUTES.ADMIN.ROOT}/overview`,
     },
 
-    ...filterRouteRedirects,
     // Brand-scoped /admin/* never existed. Send it to the platform dashboard.
     {
       destination: APP_ROUTES.ADMIN.OVERVIEW.DASHBOARD,
