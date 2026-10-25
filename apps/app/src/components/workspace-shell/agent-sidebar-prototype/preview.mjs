@@ -8,8 +8,21 @@ if (process.env.NODE_ENV === 'production') {
 }
 if (!process.env.PORTLESS_URL && !exportPath) {
   const child = Bun.spawn(
-    [process.execPath, resolve(root, 'scripts/dev/run-portless.ts'), 'app', '--', process.execPath, import.meta.path],
-    { cwd: root, env: process.env, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' },
+    [
+      process.execPath,
+      resolve(root, 'scripts/dev/run-portless.ts'),
+      'app',
+      '--',
+      process.execPath,
+      import.meta.path,
+    ],
+    {
+      cwd: root,
+      env: process.env,
+      stdin: 'inherit',
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
   );
   process.exit(await child.exited);
 }
@@ -76,8 +89,15 @@ const standalone = `
 </script>`;
 
 async function documentHtml() {
-  const fragment = await Bun.file(resolve(import.meta.dirname, 'index.html')).text();
-  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent sidebar · throwaway prototype</title></head><body>' + fragment + standalone + '</body></html>';
+  const fragment = await Bun.file(
+    resolve(import.meta.dirname, 'index.html'),
+  ).text();
+  return (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent sidebar · throwaway prototype</title></head><body>' +
+    fragment +
+    standalone +
+    '</body></html>'
+  );
 }
 if (exportPath) {
   await Bun.write(exportPath, await documentHtml());
@@ -90,11 +110,23 @@ Bun.serve({
   port: Number(process.env.PORT),
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === '/') return Response.redirect(new URL(route + '?variant=A', process.env.PORTLESS_URL));
-    if (url.pathname !== route) return new Response('Prototype route not found', { status:404 });
+    if (url.pathname === '/')
+      return Response.redirect(
+        new URL(route + '?variant=A', process.env.PORTLESS_URL),
+      );
+    if (url.pathname !== route)
+      return new Response('Prototype route not found', { status: 404 });
     return new Response(await documentHtml(), {
-      headers: { 'Content-Type':'text/html; charset=utf-8', 'Cache-Control':'no-store' },
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
     });
   },
 });
-console.info('Throwaway sidebar prototype: ' + process.env.PORTLESS_URL + route + '?variant=A');
+console.info(
+  'Throwaway sidebar prototype: ' +
+    process.env.PORTLESS_URL +
+    route +
+    '?variant=A',
+);
