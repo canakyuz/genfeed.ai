@@ -19,6 +19,7 @@ import DesktopDragStrip from '@/components/desktop/DesktopDragStrip';
 import ServiceWorkerRegistrar from '@/components/pwa/ServiceWorkerRegistrar';
 import RuntimeConfigScript from '@/components/runtime/RuntimeConfigScript';
 import DeploymentVersionWatcher from '@/components/version/DeploymentVersionWatcher';
+import { readGoogleAuthAvailableFromEnv } from '@/lib/runtime-config/google-auth-availability';
 import { readMagicLinkAvailableFromEnv } from '@/lib/runtime-config/magic-link-availability';
 import AppIntlProvider from '../i18n/AppIntlProvider';
 
@@ -50,6 +51,7 @@ function createRuntimeConfigScript(): string {
       ? {}
       : {
           betterAuthEnabled: isBetterAuthEnabled(),
+          isGoogleAuthAvailable: readGoogleAuthAvailableFromEnv(),
           isMagicLinkAvailable: readMagicLinkAvailableFromEnv(),
         }),
   };

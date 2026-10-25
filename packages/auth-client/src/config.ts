@@ -12,6 +12,7 @@ const DEFAULT_API_ENDPOINT = 'https://api.genfeed.ai/v1';
 interface GenfeedRuntimeConfig {
   apiEndpoint?: string;
   betterAuthEnabled?: boolean;
+  isGoogleAuthAvailable?: boolean;
   isMagicLinkAvailable?: boolean;
   clientSurface?: 'desktop' | 'web';
 }
@@ -94,6 +95,11 @@ export function isBetterAuthEnabled(): boolean {
  */
 export function isMagicLinkAvailable(): boolean {
   return getRuntimeConfig().isMagicLinkAvailable !== false;
+}
+
+/** Google is offered only when the server confirms the provider is configured. */
+export function isGoogleAuthAvailable(): boolean {
+  return getRuntimeConfig().isGoogleAuthAvailable === true;
 }
 
 /** Reads the environment directly, without the browser runtime override. */

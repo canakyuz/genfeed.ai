@@ -117,6 +117,8 @@ describe('app root layout', () => {
 
   beforeEach(() => {
     vi.stubEnv('GENFEED_RUNTIME_CONFIG_ENDPOINT', undefined);
+    vi.stubEnv('GOOGLE_OAUTH_CLIENT_ID', undefined);
+    vi.stubEnv('GOOGLE_OAUTH_CLIENT_SECRET', undefined);
     appProvidersSpy.mockClear();
     htmlDocumentSpy.mockClear();
     runtimeConfigSpy.mockClear();
@@ -159,8 +161,10 @@ describe('app root layout', () => {
       const inlineSource = runtimeConfigSpy.mock.calls[0][0] as string;
       if (flag === '1') {
         expect(inlineSource).not.toContain('betterAuthEnabled');
+        expect(inlineSource).not.toContain('isGoogleAuthAvailable');
       } else {
         expect(inlineSource).toContain('"betterAuthEnabled":false');
+        expect(inlineSource).toContain('"isGoogleAuthAvailable":false');
       }
 
       let bootstrapSource = '';
@@ -176,7 +180,7 @@ describe('app root layout', () => {
       );
       render(<RuntimeConfigScript source={inlineSource} />);
       expect(bootstrapSource).not.toBe('');
-      const runtimeSource = createRuntimeAuthConfigSource(true);
+      const runtimeSource = createRuntimeAuthConfigSource(true, true, true);
       expect(runtimeSource).toContain('"betterAuthEnabled":true');
       const fakeGlobal = {
         __GENFEED_RUNTIME_CONFIG__: {},
@@ -199,8 +203,37 @@ describe('app root layout', () => {
         apiEndpoint: '/v1',
         betterAuthEnabled: true,
         clientSurface: 'web',
+        isGoogleAuthAvailable: true,
         isMagicLinkAvailable: true,
       });
+    },
+  );
+
+  it.each([
+    { clientId: undefined, clientSecret: undefined, available: false },
+    { clientId: 'test-client-id', clientSecret: undefined, available: false },
+    {
+      clientId: undefined,
+      clientSecret: 'test-client-secret',
+      available: false,
+    },
+    { clientId: 'test-client-id', clientSecret: ' ', available: false },
+    {
+      clientId: ' test-client-id ',
+      clientSecret: ' test-client-secret ',
+      available: true,
+    },
+  ])(
+    'bootstraps only Google availability=$available',
+    async ({ clientId, clientSecret, available }) => {
+      vi.stubEnv('GOOGLE_OAUTH_CLIENT_ID', clientId);
+      vi.stubEnv('GOOGLE_OAUTH_CLIENT_SECRET', clientSecret);
+      const { default: RootLayout } = await import('./layout');
+      render(RootLayout({ children: <div>App child</div> }));
+      const source = runtimeConfigSpy.mock.calls[0][0];
+      expect(source).toContain(`"isGoogleAuthAvailable":${available}`);
+      expect(source).not.toContain('test-client-id');
+      expect(source).not.toContain('test-client-secret');
     },
   );
 

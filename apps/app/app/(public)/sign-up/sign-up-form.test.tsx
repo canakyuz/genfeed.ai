@@ -4,6 +4,8 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ONBOARDING_STORAGE_KEYS } from '@/lib/onboarding/onboarding-access.util';
+import { readGoogleAuthAvailableFromEnv } from '@/lib/runtime-config/google-auth-availability';
+import { createRuntimeAuthConfigSource } from '@/lib/runtime-config/runtime-config-source';
 import SignUpBetterAuth from './sign-up-better-auth';
 import SignUpForm from './sign-up-form';
 
@@ -15,7 +17,8 @@ const authClientMocks = vi.hoisted(() => ({
   social: vi.fn(),
 }));
 
-vi.mock('@genfeedai/auth-client', () => ({
+vi.mock('@genfeedai/auth-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@genfeedai/auth-client')>()),
   isMagicLinkAvailable: authClientMocks.isMagicLinkAvailable,
   signIn: {
     magicLink: authClientMocks.magicLink,
@@ -100,6 +103,9 @@ const localStorageMock = (() => {
 
 describe('SignUpForm', () => {
   beforeEach(() => {
+    vi.stubGlobal('__GENFEED_RUNTIME_CONFIG__', {
+      isGoogleAuthAvailable: true,
+    });
     authClientMocks.magicLink.mockReset();
     authClientMocks.magicLink.mockResolvedValue({});
     authClientMocks.social.mockReset();
@@ -123,6 +129,77 @@ describe('SignUpForm', () => {
 
   afterEach(() => {
     window.history.replaceState({}, '', '/sign-up');
+  });
+
+  it.each([
+    { clientId: undefined, clientSecret: undefined, available: false },
+    { clientId: 'test-client-id', clientSecret: undefined, available: false },
+    {
+      clientId: undefined,
+      clientSecret: 'test-client-secret',
+      available: false,
+    },
+    { clientId: ' ', clientSecret: 'test-client-secret', available: false },
+    { clientId: 'test-client-id', clientSecret: ' ', available: false },
+    {
+      clientId: ' test-client-id ',
+      clientSecret: ' test-client-secret ',
+      available: true,
+    },
+  ])(
+    'offers Google only with the runtime credential pair: $available',
+    ({ clientId, clientSecret, available }) => {
+      vi.stubEnv('GOOGLE_OAUTH_CLIENT_ID', clientId);
+      vi.stubEnv('GOOGLE_OAUTH_CLIENT_SECRET', clientSecret);
+      const source = createRuntimeAuthConfigSource(
+        true,
+        true,
+        readGoogleAuthAvailableFromEnv(),
+      );
+      new Function('globalThis', source)(globalThis);
+
+      render(<SignUpForm />);
+
+      expect(Boolean(screen.queryByRole('button', { name: 'Google' }))).toBe(
+        available,
+      );
+      expect(
+        screen.getByRole('link', { name: 'Email & password' }),
+      ).toBeVisible();
+      expect(screen.getByRole('link', { name: 'Magic Link' })).toBeVisible();
+      expect(authClientMocks.social).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps Google hidden when no runtime capability was reported', () => {
+    vi.stubGlobal('__GENFEED_RUNTIME_CONFIG__', undefined);
+    render(<SignUpForm />);
+    expect(screen.queryByRole('button', { name: 'Google' })).toBeNull();
+  });
+
+  it('offers configured Google independently of Magic Link availability', () => {
+    authClientMocks.isMagicLinkAvailable.mockReturnValue(false);
+    render(<SignUpForm />);
+    expect(screen.getByRole('button', { name: 'Google' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Magic Link' })).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Email & password' }),
+    ).toBeVisible();
+  });
+
+  it('hides Google when the runtime provider is unavailable', () => {
+    vi.stubGlobal('__GENFEED_RUNTIME_CONFIG__', {
+      isGoogleAuthAvailable: false,
+    });
+
+    render(<SignUpForm />);
+
+    expect(screen.queryByRole('button', { name: 'Google' })).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'Email & password' }),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Magic Link' })).toBeVisible();
+    expect(authClientMocks.social).not.toHaveBeenCalled();
   });
 
   it('renders the Better Auth sign-up chooser like the login chooser', () => {

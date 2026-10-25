@@ -5,6 +5,7 @@ import {
   getApiEndpoint,
   getApiOrigin,
   isBetterAuthEnabled,
+  isGoogleAuthAvailable,
   isMagicLinkAvailable,
 } from './config';
 
@@ -130,6 +131,24 @@ describe('auth-client config', () => {
 
       expect(getApiEndpoint()).toBe('http://runtime.local:3010/v1');
     });
+  });
+
+  describe('isGoogleAuthAvailable', () => {
+    it('defaults to unavailable when runtime configuration is absent', () => {
+      expect(isGoogleAuthAvailable()).toBe(false);
+      globalThis.__GENFEED_RUNTIME_CONFIG__ = { betterAuthEnabled: true };
+      expect(isGoogleAuthAvailable()).toBe(false);
+    });
+
+    it.each([true, false])(
+      'reads runtime provider availability %s',
+      (available) => {
+        globalThis.__GENFEED_RUNTIME_CONFIG__ = {
+          isGoogleAuthAvailable: available,
+        };
+        expect(isGoogleAuthAvailable()).toBe(available);
+      },
+    );
   });
 
   describe('isMagicLinkAvailable', () => {
