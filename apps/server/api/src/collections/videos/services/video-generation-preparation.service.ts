@@ -52,6 +52,10 @@ import {
   resolveStoredAudioReferences,
   resolveStoredVideoReference,
 } from '@api/collections/videos/services/video-generation-reference.util';
+import {
+  assertReferenceMentionInvariant,
+  resolveVideoReferenceMentionBindings,
+} from '@api/collections/videos/services/video-reference-mentions';
 import { VideoReferenceUrlService } from '@api/collections/videos/services/video-reference-url.service';
 import type { GenerationPlaceholderScope } from '@api/common/interfaces/generation-placeholder-lifecycle.interface';
 import type { RequestWithContext as Request } from '@api/common/middleware/request-context.middleware';
@@ -280,6 +284,17 @@ export class VideoGenerationPreparationService {
     const { endFrameUrl, referenceImageUrls } =
       await this.resolveReferenceUrls(resolved);
     const promptText = await this.resolvePromptText(resolved);
+    const positionalReferences = resolveVideoReferenceMentionBindings({
+      model,
+      text: promptText,
+      imageReferenceIds: referenceIds,
+      videoReferenceIds: createVideoDto.videoReferences,
+      audioReferenceIds: createVideoDto.audioReferences,
+      endFrameId: createVideoDto.endFrame,
+      hasEditMask:
+        createVideoDto.maskId != null || createVideoDto.editMask != null,
+      runReferences,
+    });
     const generationHarness = await this.enhanceGenerationPrompt(
       user,
       createVideoDto,
@@ -307,7 +322,7 @@ export class VideoGenerationPreparationService {
       model,
       generationHarness,
       referenceIds,
-      runReferences,
+      runReferences: runReferences ?? positionalReferences,
       width,
     });
     const compiledDispatch = rawCompiledDispatch
@@ -341,6 +356,10 @@ export class VideoGenerationPreparationService {
       generationHarness.enhancedPrompt = promptParams.prompt;
     }
     promptParams.prompt = generationHarness.enhancedPrompt;
+    assertReferenceMentionInvariant({
+      originalText: promptText,
+      preparedText: generationHarness.enhancedPrompt,
+    });
     const promptInput = promptParams as PromptInput;
     const promptData = await this.createGenerationPrompt(resolved, promptText);
     const { metadataData, ingredientData } =

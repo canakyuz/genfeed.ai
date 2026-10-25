@@ -45,6 +45,14 @@ import type {
   StudioPlaygroundType,
   StudioSubmitOptions,
 } from '@genfeedai/contracts/interfaces/studio/studio-playground.interface';
+import type { StudioReferenceMentionSource } from '@genfeedai/contracts/interfaces/studio/studio-reference-mention.interface';
+import {
+  numberReferenceMentions,
+  reconcileReferenceMentionOrder,
+  resolveAttachedReferenceSources,
+  restoreReferenceMentionOrder,
+  validateReferenceMentions,
+} from '@genfeedai/helpers/content/reference-mention.util';
 import { normalizeCrunVideoDraft } from '@genfeedai/helpers/crun-video-input.helper';
 import { isAutoStudioModelKey } from '@genfeedai/pricing';
 import type { BrandKnowledgeSelection } from '@genfeedai/props/content/knowledge-library.props';
@@ -86,6 +94,7 @@ import { useStudioPlaygroundPreviewRecovery } from '@pages/studio/playground/hoo
 import { useStudioPlaygroundSettings } from '@pages/studio/playground/hooks/useStudioPlaygroundSettings';
 import { useStudioPlaygroundTransformActions } from '@pages/studio/playground/hooks/useStudioPlaygroundTransformActions';
 import { useStudioPromptEnhancement } from '@pages/studio/playground/hooks/useStudioPromptEnhancement';
+import { useStudioReferenceMentions } from '@pages/studio/playground/hooks/useStudioReferenceMentions';
 import {
   buildRepromptData,
   buildStudioCrunQuoteRequest,
@@ -317,10 +326,6 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
     surface: SkillSurface.STUDIO,
     recognizedSkillSlugs,
   });
-  const extraExtensions = useMemo(
-    () => [...characterMentionExtensions, ...promptCommandExtensions],
-    [characterMentionExtensions, promptCommandExtensions],
-  );
   // #4716 review P1: the Agent context service (`agentApiService`) is only
   // mounted on the `/agent` route tree — the same wiring gap the P0 handoff
   // fix already worked around. Reference resolution needs a Studio-native
@@ -341,12 +346,6 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
     type,
     updateSettings,
   } = useStudioPlaygroundSettings();
-  // An edit sends the raw instruction, so character mentions stay out of it;
-  // the `/` palette stays, since it is how the edit presets are offered.
-  const composerExtensions = useMemo(
-    () => (type === 'image-edit' ? promptCommandExtensions : extraExtensions),
-    [type, promptCommandExtensions, extraExtensions],
-  );
 
   const authIdentity = useAuthIdentity();
   const crunRestoreScope = JSON.stringify([
@@ -1077,28 +1076,118 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
     }
   }, [selectedJob, selectedJobId]);
 
-  const resolvedReferences = useMemo(() => {
-    const entries = [
-      ...getCompletedAttachments().map((completed) => {
-        const attachment = attachments.find(
-          (candidate) => candidate.ingredientId === completed.ingredientId,
-        );
-        const explicitRole = attachment
-          ? getAttachmentRole(attachment)
-          : undefined;
-        const role = resolveStudioUploadReferenceRole(
-          completed.kind,
+  const referenceOrderRef = useRef<StudioReferenceMentionSource[]>([]);
+  const orderedReferenceSources = useMemo(() => {
+    const completedAttachments = getCompletedAttachments();
+    const completedIds = new Set(
+      completedAttachments.map((attachment) => attachment.ingredientId),
+    );
+    const sourceAttachments = [
+      ...attachments,
+      ...restoredAttachments.filter(
+        (attachment) =>
+          pendingRestoredUploadIds?.includes(attachment.id) &&
+          !attachments.some((current) => current.id === attachment.id),
+      ),
+    ];
+    const current: StudioReferenceMentionSource[] = [
+      ...sourceAttachments.map((attachment) => ({
+        key: `upload:${attachment.id}`,
+        id:
+          attachment.ingredientId &&
+          (completedIds.has(attachment.ingredientId) ||
+            attachment.status === UploadStatus.COMPLETED)
+            ? attachment.ingredientId
+            : undefined,
+        kind: attachment.kind,
+        name: attachment.name,
+        previewUrl: attachment.previewUrl,
+        role: resolveStudioUploadReferenceRole(
+          attachment.kind,
           type,
-          explicitRole,
-        );
-        return { id: completed.ingredientId, role };
-      }),
+          getAttachmentRole(attachment),
+        ),
+        source: 'upload' as const,
+      })),
+      ...completedAttachments
+        .filter(
+          (completed) =>
+            !sourceAttachments.some(
+              (attachment) =>
+                attachment.ingredientId === completed.ingredientId,
+            ),
+        )
+        .map((completed) => ({
+          key: `upload:${completed.ingredientId}`,
+          id: completed.ingredientId,
+          kind: completed.kind,
+          name: completed.ingredientId,
+          previewUrl: completed.url,
+          role: resolveStudioUploadReferenceRole(completed.kind, type),
+          source: 'upload' as const,
+        })),
       ...contentReferences.map((reference) => ({
+        key: `library:${reference.role}:${reference.item.id}`,
         id: reference.item.id,
+        kind: getStudioReferenceKind(reference.item.contentType),
+        name: reference.item.contentTitle,
+        previewUrl: reference.item.thumbnailUrl,
         role: reference.role,
+        source: 'library' as const,
       })),
     ];
+    const ordered = reconcileReferenceMentionOrder(
+      referenceOrderRef.current,
+      current,
+    );
+    referenceOrderRef.current = ordered;
+    return ordered;
+  }, [
+    attachments,
+    contentReferences,
+    getAttachmentRole,
+    getCompletedAttachments,
+    type,
+    restoredAttachments,
+    pendingRestoredUploadIds,
+  ]);
+  const attachedReferenceSources = useMemo(
+    () => resolveAttachedReferenceSources(orderedReferenceSources),
+    [orderedReferenceSources],
+  );
+  const referenceMentions = useMemo(
+    () => numberReferenceMentions(attachedReferenceSources),
+    [attachedReferenceSources],
+  );
+  const referenceExtensions = useStudioReferenceMentions({
+    references: referenceMentions,
+    characters: type === 'image-edit' ? [] : characterMentions,
+    characterExtensions: characterMentionExtensions,
+  });
+  const composerExtensions = useMemo(
+    () => [...referenceExtensions, ...promptCommandExtensions],
+    [referenceExtensions, promptCommandExtensions],
+  );
+  // Document revision catches identity changes even if the plain token is unchanged.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the editor document is held in a ref to avoid a render on every selection update.
+  const referenceValidation = useMemo(
+    () =>
+      validateReferenceMentions(
+        prompt,
+        referenceMentions,
+        promptDocumentRef.current,
+        attachedReferenceSources,
+      ),
+    [
+      prompt,
+      referenceMentions,
+      attachedReferenceSources,
+      quoteDocumentRevision,
+    ],
+  );
 
+  const resolvedReferences = useMemo(() => {
+    const entries = attachedReferenceSources;
     return {
       audioReferenceIds: studioAudioReferenceIds(entries),
       editSourceIds: entries
@@ -1120,14 +1209,7 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
         .filter((entry) => entry.role === 'videoReference')
         .map((entry) => entry.id),
     };
-  }, [
-    attachments,
-    contentReferences,
-    getAttachmentRole,
-    getCompletedAttachments,
-    type,
-    settings.editPrimaryId,
-  ]);
+  }, [attachedReferenceSources, settings.editPrimaryId]);
 
   useEffect(() => {
     if (type !== 'image-edit' || !resolvedReferences.editSourceIds.length)
@@ -1342,14 +1424,20 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
       ? {
           mediaKind: 'video',
           request:
-            isEnhancingPrompt || isUploading || crunRestoreStatus
+            isEnhancingPrompt ||
+            isUploading ||
+            crunRestoreStatus ||
+            referenceValidation.errors.length
               ? null
               : crunVideoRequest,
           isActive: Boolean(crunModel),
         }
       : {
           request:
-            isEnhancingPrompt || isUploading || crunRestoreStatus
+            isEnhancingPrompt ||
+            isUploading ||
+            crunRestoreStatus ||
+            referenceValidation.errors.length
               ? null
               : crunRequest,
           isActive: Boolean(crunModel),
@@ -1364,6 +1452,15 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
       if (crunRestoreStatus || isUploading || isListening || isTranscribing) {
         return;
       }
+      if (
+        validateReferenceMentions(
+          prompt,
+          referenceMentions,
+          promptDocumentRef.current,
+          attachedReferenceSources,
+        ).errors.length
+      )
+        return;
       if (isSubmitInFlightRef.current) return;
       const referencePreviewUrl = referencePreviewUrlRef.current;
       const previewOption = referencePreviewUrl
@@ -1484,6 +1581,8 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
       notificationsService,
       prompt,
       resolvedReferences,
+      referenceMentions,
+      attachedReferenceSources,
       resolveCharacterMentions,
       rejectUnsupportedSkillSelection,
       resolvePromptCommands,
@@ -2048,6 +2147,16 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
     return copy;
   }, [settingsByType]);
 
+  const draftReferenceOrder = useMemo(
+    () =>
+      new Map(
+        attachedReferenceSources.map((reference, order) => [
+          `${reference.role}:${reference.id}`,
+          order,
+        ]),
+      ),
+    [attachedReferenceSources],
+  );
   const draftPayload = useMemo<StudioGenerateDraftPayload>(
     () => ({
       attachments: attachments.flatMap((attachment: AttachmentItem) =>
@@ -2056,6 +2165,9 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
               {
                 id: attachment.ingredientId,
                 role: resolveAttachmentRole(attachment),
+                order: draftReferenceOrder.get(
+                  `${resolveAttachmentRole(attachment)}:${attachment.ingredientId}`,
+                ),
               },
             ]
           : [],
@@ -2065,6 +2177,9 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
       references: contentReferences.map((reference) => ({
         id: reference.item.id,
         role: reference.role,
+        order: draftReferenceOrder.get(
+          `${reference.role}:${reference.item.id}`,
+        ),
       })),
       settingsByType: draftSettingsByType,
       type,
@@ -2076,6 +2191,7 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
       prompt,
       resolveAttachmentRole,
       draftSettingsByType,
+      draftReferenceOrder,
       type,
     ],
   );
@@ -2117,6 +2233,44 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
         return [attachment];
       });
 
+      referenceOrderRef.current = restoreReferenceMentionOrder([
+        ...draft.attachments.flatMap((entry) => {
+          const attachment = restoredUploads.find(
+            (item) => item.ingredientId === entry.id,
+          );
+          return attachment
+            ? [
+                {
+                  key: `upload:${attachment.id}`,
+                  id: entry.id,
+                  kind: attachment.kind,
+                  name: attachment.name,
+                  role: entry.role,
+                  source: 'upload' as const,
+                  order: entry.order,
+                },
+              ]
+            : [];
+        }),
+        ...draft.references.flatMap((entry) => {
+          const reference = references.find(
+            (item) => item.item.id === entry.id,
+          );
+          return reference
+            ? [
+                {
+                  key: `library:${entry.role}:${entry.id}`,
+                  id: entry.id,
+                  kind: getStudioReferenceKind(reference.item.contentType),
+                  name: reference.item.contentTitle,
+                  role: entry.role,
+                  source: 'library' as const,
+                  order: entry.order,
+                },
+              ]
+            : [];
+        }),
+      ]);
       restoreSettings(
         sanitizeStudioPlaygroundState({
           settingsByType: draft.settingsByType,
@@ -2859,11 +3013,36 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
             >
               <StudioPlaygroundComposer
                 notice={
+                  referenceValidation.errors.length > 0 ||
+                  (prompt.trim() &&
+                    referenceValidation.unusedTokens.length > 0) ||
                   draftSaveStatus === 'error' ||
                   draftSaveStatus === 'failed' ||
                   crunRestoreStatus === 'failed' ||
                   remixableVideos.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-2 px-3.5 py-2">
+                      {referenceValidation.errors.map((error) => (
+                        <p
+                          key={error}
+                          role="alert"
+                          className="text-xs text-destructive"
+                          data-testid="studio-reference-mention-error"
+                        >
+                          {error}
+                        </p>
+                      ))}
+                      {prompt.trim() &&
+                      referenceValidation.unusedTokens.length > 0 ? (
+                        <p
+                          role="status"
+                          className="text-xs text-muted-foreground"
+                          data-testid="studio-reference-mention-notice"
+                        >
+                          Attached but not mentioned:{' '}
+                          {referenceValidation.unusedTokens.join(', ')}. They
+                          will still be included.
+                        </p>
+                      ) : null}
                       {draftSaveStatus === 'error' ||
                       draftSaveStatus === 'failed' ? (
                         <p
@@ -2906,6 +3085,7 @@ export default function StudioPlaygroundWorkspace(): ReactElement {
                 contextGroups={composerContextGroups}
                 crunQuote={crunModel ? crunQuote : undefined}
                 isCrunRestoreBlocked={Boolean(crunRestoreStatus)}
+                isPromptInvalid={referenceValidation.errors.length > 0}
                 crunReferenceCount={crunPreparedIntent.referenceIds.length}
                 crunStartFrameId={crunPreparedIntent.referenceIds[0]}
                 crunEndFrameId={resolvedReferences.endFrameId}

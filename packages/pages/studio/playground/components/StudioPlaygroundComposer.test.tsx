@@ -2466,6 +2466,27 @@ describe('StudioPlaygroundComposer', () => {
     expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled();
   });
 
+  it('blocks unmatched reference prompts before requesting a quote or generation', () => {
+    render(
+      <StudioPlaygroundComposer
+        {...baseProps}
+        isPromptInvalid
+        prompt="Use @Image9"
+        settings={settings}
+        type="image"
+      />,
+    );
+    const generate = screen.getByRole('button', {
+      name: 'Generate',
+      exact: true,
+    });
+    expect(generate).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(generate);
+    act(() => promptEditorProps.onSubmit?.());
+    expect(spendMocks.estimateGenerationCredits).not.toHaveBeenCalled();
+    expect(baseProps.onSubmit).not.toHaveBeenCalled();
+  });
+
   describe('spend confirmation', () => {
     const imagen = {
       category: ModelCategory.IMAGE,
