@@ -64,6 +64,9 @@ describe('app next.config', () => {
   );
 
   it.each([
+    '/acme/brand/edit/article/a1',
+    '/acme/brand/edit/newsletter/n1',
+    '/acme/brand/overview/activities',
     '/acme/~/agent/onboarding',
     '/acme/brand/agent/onboarding/thread-1',
     '/acme/brand/analytics/trends',

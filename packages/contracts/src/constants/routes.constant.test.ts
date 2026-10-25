@@ -84,8 +84,6 @@ describe('routes.constant', () => {
 
   it('keeps legacy long-form aliases separate from the project editor', () => {
     expect(APP_ROUTES.EDIT.ROOT).toBe('/edit');
-    expect(APP_ROUTES.EDIT.ARTICLE).toBe('/edit/article');
-    expect(APP_ROUTES.EDIT.NEWSLETTER).toBe('/edit/newsletter');
     expect(APP_ROUTES.PUBLISHING.POSTS).toBe('/publishing/posts');
     expect(APP_ROUTES.STUDIO.EDITOR).toBe('/editor');
     expect(APP_ROUTES.STUDIO.TURBO).toBe('/turbo');
@@ -130,7 +128,7 @@ describe('routes.constant', () => {
       expect(APP_ROUTES.SETTINGS).not.toHaveProperty(key);
     }
     expect(APP_ROUTES.LIBRARY).not.toHaveProperty('INGREDIENTS');
-    expect(APP_ROUTES.OVERVIEW).not.toHaveProperty('ROOT');
+    expect(APP_ROUTES).not.toHaveProperty('OVERVIEW');
     expect(APP_ROUTES.PUBLISHING).not.toHaveProperty('OUTREACH_CAMPAIGNS');
     expect(APP_ROUTES.PUBLISHING).not.toHaveProperty('OUTREACH_CAMPAIGNS_NEW');
   });
