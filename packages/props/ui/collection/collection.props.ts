@@ -23,8 +23,11 @@ export interface UseCollectionViewPreferenceReturn {
 }
 
 export interface CollectionSectionProps {
-  /** Section heading. Rendered as an h2 so sections are page landmarks. */
-  title: ReactNode;
+  /**
+   * Section heading, rendered as an h2 so sections are page landmarks. Leave it
+   * out when the section is the page's only content: the breadcrumb is the title.
+   */
+  title?: ReactNode;
   description?: ReactNode;
   /** Trailing header slot — a "View all" link or a section-level action. */
   actions?: ReactNode;
@@ -85,25 +88,9 @@ export interface CollectionViewProps<TItem> {
   'data-testid'?: string;
 }
 
-export interface CollectionFilterChip {
-  id: string;
-  label: ReactNode;
-  onRemove: () => void;
-}
-
-export interface CollectionToolbarProps {
-  /** Search input slot. */
-  search?: ReactNode;
-  /** Type / Category dropdowns. Never a filter sidebar. */
-  filters?: ReactNode;
-  /** Sort control slot. */
-  sort?: ReactNode;
-  view?: CollectionViewType;
-  onViewChange?: (view: CollectionViewType) => void;
-  /** Active filters, shown as removable chips beneath the row. */
-  chips?: CollectionFilterChip[];
-  onClearChips?: () => void;
-  className?: string;
+export interface CollectionViewToggleProps {
+  view: CollectionViewType;
+  onViewChange: (view: CollectionViewType) => void;
 }
 
 interface CollectionOverflowActionBase {

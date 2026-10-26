@@ -3,7 +3,6 @@
     "relevance": "Trend relevance",
     "market": "Market trends",
     "brand": "For this brand",
-    "reload": "Reload data",
     "loadError": "Some trend data could not be loaded. Reload to retry.",
     "openSource": "Open source",
     "asAccount": "{action} as {account}",
@@ -375,13 +374,10 @@
     "dismissAriaLabel": "Dismiss insight"
   },
   "collection": {
-    "clearAll": "Clear all",
     "grid": "Grid",
     "list": "List",
     "loadingItem": "Loading item",
     "moreActions": "More actions",
-    "removeFilter": "Remove filter {label}",
-    "removeFilterFallback": "Remove filter",
     "scrollLeft": "Scroll left",
     "scrollRight": "Scroll right"
   },
@@ -709,11 +705,6 @@
       "status": "Status",
       "type": "Type"
     }
-  },
-  "channelDropdown": {
-    "allChannels": "All channels",
-    "connectedAccounts": "Connected accounts",
-    "more": "More"
   },
   "promptBarBlacklist": {
     "avoid": "Avoid",

@@ -1,4 +1,5 @@
 import { APP_ROUTES } from '@genfeedai/contracts/constants';
+import type { Page } from '@playwright/test';
 import {
   mockActiveSubscription,
   mockAdsResearchResults,
@@ -8,6 +9,13 @@ import {
 import { expect, test } from '../../fixtures/auth.fixture';
 import { DiscoveryPage } from '../../pages/discovery.page';
 import { assertNoErrorBoundaryFallback } from '../../utils/route-assertions';
+
+/** Picks one platform in the Platform facet of the shared Filters menu. */
+async function chooseAdsPlatform(page: Page, name: RegExp): Promise<void> {
+  await page.getByRole('button', { name: /^Filters/ }).click();
+  await page.getByRole('menuitem', { name: /^Platform/ }).click();
+  await page.getByRole('menuitemradio', { name }).click();
+}
 
 /**
  * E2E tests for the Discovery section.
@@ -112,7 +120,7 @@ test.describe('Discovery section', () => {
       await expect(authenticatedPage).toHaveURL(/discovery\/ads/);
       await expect(discoveryPage.mainContent).toBeVisible();
       await expect(
-        authenticatedPage.getByRole('tab', { name: 'Overview' }),
+        authenticatedPage.getByRole('button', { name: /^Filters/ }),
       ).toBeVisible();
       // "Public Winners" / "Public Niche Winners" were the pre-#4317 copy.
       // The public-ads panel now opens with this heading (see
@@ -142,10 +150,11 @@ test.describe('Discovery section', () => {
     });
 
     // #4317 collapsed the /discovery/ads/{google,meta,tiktok,x} sub-pages
-    // into a platform tab/query filter (?platform=) on this one page — the
-    // per-platform capability was redesigned, not removed, so it is covered
-    // here against the current tabs instead of the retired routes.
-    test('should switch to the Google + YouTube ads tab', async ({
+    // into a platform query filter (?platform=) on this one page, now a facet
+    // of the Filters menu — the per-platform capability was redesigned, not
+    // removed, so it is covered here against the current menu instead of the
+    // retired routes.
+    test('should switch to the Google + YouTube ads platform', async ({
       authenticatedPage,
     }) => {
       await mockAdsResearchResults(authenticatedPage);
@@ -158,12 +167,8 @@ test.describe('Discovery section', () => {
         APP_ROUTES.DISCOVERY.ADS,
       );
 
-      const googleTab = authenticatedPage.getByRole('tab', {
-        name: 'Google + YouTube',
-      });
-      await googleTab.click();
+      await chooseAdsPlatform(authenticatedPage, /^Google \+ YouTube/);
 
-      await expect(googleTab).toHaveAttribute('data-state', 'active');
       await expect(authenticatedPage).toHaveURL(/platform=google/);
       await expect(discoveryPage.mainContent).toBeVisible();
       // The platform filter is server-side — only the Google ad renders.
@@ -179,7 +184,9 @@ test.describe('Discovery section', () => {
       ).toBeHidden();
     });
 
-    test('should switch to the Meta ads tab', async ({ authenticatedPage }) => {
+    test('should switch to the Meta ads platform', async ({
+      authenticatedPage,
+    }) => {
       await mockAdsResearchResults(authenticatedPage);
       const discoveryPage = new DiscoveryPage(authenticatedPage);
 
@@ -190,10 +197,8 @@ test.describe('Discovery section', () => {
         APP_ROUTES.DISCOVERY.ADS,
       );
 
-      const metaTab = authenticatedPage.getByRole('tab', { name: 'Meta' });
-      await metaTab.click();
+      await chooseAdsPlatform(authenticatedPage, /^Meta/);
 
-      await expect(metaTab).toHaveAttribute('data-state', 'active');
       await expect(authenticatedPage).toHaveURL(/platform=meta/);
       await expect(discoveryPage.mainContent).toBeVisible();
       await expect(
@@ -230,11 +235,15 @@ test.describe('Discovery section', () => {
       );
 
       // The Desk's source filter is URL-backed (`?source=`) — select a
-      // non-default tab so refresh has real state to preserve.
-      const trendsTab = authenticatedPage.getByRole('tab', {
-        name: 'Public trends',
-      });
-      await trendsTab.click();
+      // non-default source in the Filters menu so refresh has real state to
+      // preserve.
+      await authenticatedPage.getByRole('button', { name: /^Filters/ }).click();
+      await authenticatedPage
+        .getByRole('menuitem', { name: /^Source/ })
+        .click();
+      await authenticatedPage
+        .getByRole('menuitemradio', { name: /^Public trends/ })
+        .click();
       await expect(authenticatedPage).toHaveURL(/source=trends/);
       await expect(
         authenticatedPage.getByText('Workflow demo clip'),
@@ -254,9 +263,11 @@ test.describe('Discovery section', () => {
       await expect(authenticatedPage).toHaveURL(/source=trends/);
       await expect(discoveryPage.mainContent).toBeVisible();
 
-      // The active tab and the row filtering it drives must both survive
+      // The active source and the row filtering it drives must both survive
       // the reload — not only the URL param.
-      await expect(trendsTab).toHaveAttribute('data-state', 'active');
+      await expect(
+        authenticatedPage.getByRole('button', { name: /^Filters/ }),
+      ).toContainText('1');
       await expect(
         authenticatedPage.getByText('Workflow demo clip'),
       ).toBeVisible();
