@@ -5,13 +5,17 @@ import {
   DraftStoryboardPlanDto,
   GenerateStoryboardStillsDto,
   ListStoryboardRunsDto,
+  QuoteStoryboardARollDto,
   QuoteStoryboardStillsDto,
+  RenderStoryboardARollDto,
   ReplaceStoryboardCharacterDto,
   ResetStoryboardPlanDto,
   UpdateStoryboardPlanDto,
   UpdateStoryboardSourceDto,
 } from '@api/collections/content-runs/dto/storyboard-run.dto';
+import { StoryboardARollService } from '@api/collections/content-runs/services/storyboard-a-roll.service';
 import { StoryboardCharacterReplaceService } from '@api/collections/content-runs/services/storyboard-character-replace.service';
+import { StoryboardLongFormAssemblyService } from '@api/collections/content-runs/services/storyboard-long-form-assembly.service';
 import { StoryboardRunCapabilitiesService } from '@api/collections/content-runs/services/storyboard-run-capabilities.service';
 import { StoryboardRunsService } from '@api/collections/content-runs/services/storyboard-runs.service';
 import { StoryboardStillsService } from '@api/collections/content-runs/services/storyboard-stills.service';
@@ -47,6 +51,8 @@ export class StoryboardRunsController {
     private readonly capabilities: StoryboardRunCapabilitiesService,
     private readonly characters: StoryboardCharacterReplaceService,
     private readonly stills: StoryboardStillsService,
+    private readonly aRoll: StoryboardARollService,
+    private readonly assembly: StoryboardLongFormAssemblyService,
   ) {}
 
   @Post()
@@ -193,6 +199,118 @@ export class StoryboardRunsController {
       StoryboardRunSerializer,
       await this.stills.reconcile(user.organizationId, brandId, runId),
     );
+  }
+
+  @Post(':runId/a-roll/quote')
+  quoteARoll(
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+    @Body() body: QuoteStoryboardARollDto,
+  ) {
+    return this.aRoll.quote(
+      'aRoll',
+      user.organizationId,
+      brandId,
+      runId,
+      user.userId,
+      body,
+    );
+  }
+
+  @Post(':runId/a-roll')
+  async renderARoll(
+    @Req() request: Request,
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+    @Body() body: RenderStoryboardARollDto,
+  ) {
+    return serializeSingle(
+      request,
+      StoryboardRunSerializer,
+      await this.aRoll.render(
+        'aRoll',
+        user.organizationId,
+        brandId,
+        runId,
+        user.userId,
+        body,
+      ),
+    );
+  }
+
+  @Post(':runId/a-roll/reconcile')
+  async reconcileARoll(
+    @Req() request: Request,
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+  ) {
+    return serializeSingle(
+      request,
+      StoryboardRunSerializer,
+      await this.aRoll.reconcile(user.organizationId, brandId, runId),
+    );
+  }
+
+  @Post(':runId/animatic/quote')
+  quoteAnimatic(
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+    @Body() body: QuoteStoryboardARollDto,
+  ) {
+    return this.aRoll.quote(
+      'animatic',
+      user.organizationId,
+      brandId,
+      runId,
+      user.userId,
+      body,
+    );
+  }
+
+  @Post(':runId/animatic')
+  async renderAnimatic(
+    @Req() request: Request,
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+    @Body() body: RenderStoryboardARollDto,
+  ) {
+    return serializeSingle(
+      request,
+      StoryboardRunSerializer,
+      await this.aRoll.render(
+        'animatic',
+        user.organizationId,
+        brandId,
+        runId,
+        user.userId,
+        body,
+      ),
+    );
+  }
+
+  /** Opens the rendered long-form video as an Editor project. */
+  @Post(':runId/long-form/assemble')
+  assembleLongForm(
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.assembly.assemble(user, brandId, runId, 'aRoll');
+  }
+
+  /** Opens the animatic: the spoken draft under the presenter's photo. */
+  @Post(':runId/animatic/assemble')
+  assembleAnimatic(
+    @Param('brandId') brandId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.assembly.assemble(user, brandId, runId, 'animatic');
   }
 
   @TenantReadPolicy('selected')

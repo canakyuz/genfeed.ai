@@ -6,6 +6,22 @@ const id = {
   maxLength: 255,
   pattern: '^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$',
 };
+const revision = { type: 'integer', minimum: 1 };
+const stage = {
+  type: 'string',
+  enum: ['cutaways', 'animatic', 'presenter'],
+  description:
+    'cutaways: B-roll stills. animatic: cheap spoken draft. presenter: HeyGen Avatar IV render.',
+};
+const cutawayIds = {
+  type: 'array',
+  items: id,
+  minItems: 1,
+  maxItems: 60,
+  uniqueItems: true,
+};
+const inputHash = { type: 'string', minLength: 64, maxLength: 64 };
+
 export const MCP_STORYBOARD_CAPABILITY_TOOLS: SourceTool[] = [
   {
     name: 'storyboard_run_capabilities',
@@ -16,6 +32,126 @@ export const MCP_STORYBOARD_CAPABILITY_TOOLS: SourceTool[] = [
       additionalProperties: false,
       properties: { brandId: id, runId: id },
       required: ['brandId', 'runId'],
+    },
+    creditCost: 0,
+    requiredRole: 'user',
+  },
+  {
+    name: 'storyboard_long_form',
+    description:
+      'Work on a long-form storyboard (voice note to presenter video). create starts one from a transcript or idea dump (brief); get reads the run and plan; draft_plan drafts or revises the plan from the brief (instruction); edit_script rewrites segment narration and cutaway briefs by id; approve_plan locks it; quote prices one paid stage and returns its inputHash; reconcile picks up finished renders; assemble opens the animatic or final edit as an Editor project. Never charges credits.',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        action: {
+          type: 'string',
+          enum: [
+            'create',
+            'get',
+            'draft_plan',
+            'edit_script',
+            'approve_plan',
+            'quote',
+            'reconcile',
+            'assemble',
+          ],
+        },
+        brandId: id,
+        runId: { ...id, description: 'Every action except create.' },
+        clientRequestId: {
+          type: 'string',
+          format: 'uuid',
+          description: 'create only: a new UUID for this video.',
+        },
+        brief: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 20000,
+          description:
+            'create only: the voice-note transcript or idea dump to script.',
+        },
+        expectedRevision: {
+          ...revision,
+          description:
+            'Run revision from get; required for draft_plan, edit_script, approve_plan and quote.',
+        },
+        instruction: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 2000,
+          description: 'draft_plan only: how to revise the current plan.',
+        },
+        segments: {
+          type: 'array',
+          maxItems: 150,
+          description:
+            'edit_script only: segments to change, by id from get. Omitted fields stay.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              id,
+              sectionLabel: { type: 'string', maxLength: 40 },
+              narration: { type: 'string', minLength: 1, maxLength: 2000 },
+            },
+            required: ['id'],
+          },
+        },
+        cutaways: {
+          type: 'array',
+          maxItems: 600,
+          description:
+            'edit_script only: cutaway briefs to change, by id from get. A new brief drops its old still.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              id,
+              brief: { type: 'string', minLength: 1, maxLength: 1000 },
+            },
+            required: ['id'],
+          },
+        },
+        stage: { ...stage, description: `quote only. ${stage.description}` },
+        cutawayIds: {
+          ...cutawayIds,
+          description:
+            'quote with stage cutaways: these cutaways; omit for every cutaway without footage.',
+        },
+        track: {
+          type: 'string',
+          enum: ['animatic', 'final'],
+          description: 'assemble only: the draft or the finished video.',
+        },
+      },
+      required: ['action', 'brandId'],
+    },
+    creditCost: 0,
+    requiredRole: 'user',
+  },
+  {
+    name: 'start_storyboard_long_form',
+    description:
+      'Start one quoted paid stage of a long-form storyboard after the user accepts the price from storyboard_long_form quote. Pass the quote inputHash; a changed plan is refused, and finished renders are not charged again. Then call storyboard_long_form reconcile until the stage is ready.',
+    parameters: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        brandId: id,
+        runId: id,
+        stage,
+        expectedRevision: revision,
+        inputHash: {
+          ...inputHash,
+          description: 'inputHash from the accepted quote.',
+        },
+        cutawayIds: {
+          ...cutawayIds,
+          description: 'stage cutaways only: the quoted cutaway ids.',
+        },
+      },
+      required: ['brandId', 'runId', 'stage', 'expectedRevision', 'inputHash'],
     },
     creditCost: 0,
     requiredRole: 'user',

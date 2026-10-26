@@ -26,6 +26,8 @@ describe('storyboard plan draft route', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
+      {} as never,
     );
     const body = { expectedRevision: 2, instruction: 'Shorter' };
     const result = await controller.draftPlan(
@@ -75,6 +77,8 @@ describe('storyboard still routes', () => {
       {} as never,
       {} as never,
       stills as never,
+      {} as never,
+      {} as never,
     );
     const quoteBody = { expectedRevision: 3 };
     await expect(
