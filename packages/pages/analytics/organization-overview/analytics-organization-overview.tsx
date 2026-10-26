@@ -44,7 +44,7 @@ const BrandPerformanceChart = dynamic(
       '@ui/analytics/charts/brand-performance/brand-performance-chart'
     ).then((mod) => mod.BrandPerformanceChart),
   {
-    loading: () => <div className="h-chart w-full bg-muted/60 animate-pulse" />,
+    loading: () => <Skeleton className="h-chart w-full" />,
     ssr: false,
   },
 );
@@ -55,7 +55,7 @@ const PlatformBreakdownChart = dynamic(
       '@ui/analytics/charts/platform-breakdown/platform-breakdown-chart'
     ).then((mod) => mod.PlatformBreakdownChart),
   {
-    loading: () => <div className="h-chart w-full bg-muted/60 animate-pulse" />,
+    loading: () => <Skeleton className="h-chart w-full" />,
     ssr: false,
   },
 );
