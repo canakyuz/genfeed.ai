@@ -277,6 +277,18 @@ describe('mayContainSubmit', () => {
     ).toBe(false);
   });
 
+  it('watches for the icon row X adds when a reply box is focused', () => {
+    document.body.innerHTML =
+      '<div id="holder"><div data-testid="toolBar"></div></div>';
+
+    expect(
+      mayContainSubmit(
+        platforms.twitter,
+        document.getElementById('holder') as Element,
+      ),
+    ).toBe(true);
+  });
+
   it('watches for the reply box on platforms found by label', () => {
     document.body.innerHTML =
       '<div id="holder"><div contenteditable="true" role="textbox"></div></div>';
@@ -347,6 +359,33 @@ describe('mountGenfeedGroup in the X toolbar', () => {
     expect(
       mountGenfeedGroup(submit, [], boundary, platforms.twitter),
     ).toBeNull();
+  });
+
+  it("skips X's hidden scroller Next button and stays beside the last icon", () => {
+    const { boundary, submit } = renderComposer();
+    const nav = document.createElement('div');
+    nav.setAttribute('data-testid', 'ScrollSnap-nextButtonWrapper');
+    nav.innerHTML = '<button id="next" aria-label="Next">next</button>';
+    document.querySelector('[data-testid="toolBar"]')?.appendChild(nav);
+    (document.getElementById('next') as HTMLElement).getBoundingClientRect =
+      () => ({ height: 34, width: 34 }) as DOMRect;
+
+    const group = mountGenfeedGroup(submit, [], boundary, platforms.twitter);
+
+    expect(group?.previousElementSibling?.id).toBe('location-wrap');
+  });
+
+  it('adds nothing to a collapsed composer and removes a group left there', () => {
+    const { boundary, submit } = renderComposer();
+    expect(
+      mountGenfeedGroup(submit, [], boundary, platforms.twitter),
+    ).not.toBeNull();
+    document.querySelector('[data-testid="toolBar"]')?.remove();
+
+    expect(
+      mountGenfeedGroup(submit, [], boundary, platforms.twitter),
+    ).toBeNull();
+    expect(document.querySelector('[data-genfeed-group]')).toBeNull();
   });
 
   it('falls back to the Reply button when the toolbar has no icons', () => {
