@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { PublicationCaptureAttempt } from '@genfeedai/contracts/interfaces/extension/extension-publication-observer.interface';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   findLinkedInComposer,
   isTrustedLinkedInSubmission,
@@ -560,4 +560,98 @@ it('two matching toasts are ambiguous and are never guessed', async () => {
   );
   await vi.advanceTimersByTimeAsync(500);
   expect(calls('publicationCaptureComplete')).toHaveLength(0);
+});
+
+describe('the newer LinkedIn feed layout', () => {
+  const ugcParent = `urn:li:ugcPost:${ids.POST}`;
+  const ugcNewComment = `urn:li:comment:(ugcPost:${ids.POST},${ids.NEW_COMMENT})`;
+  const ugcOldComment = `urn:li:comment:(ugcPost:${ids.POST},${ids.OLD_COMMENT})`;
+  const feedAttempt: PublicationCaptureAttempt = {
+    ...commentAttempt,
+    surface: {
+      kind: 'linkedin-comment',
+      parent: {
+        externalId: ugcParent,
+        url: `${ORIGIN}/feed/update/${ugcParent}/`,
+      },
+    },
+    baselineIds: [ugcParent, ugcOldComment],
+  };
+
+  it('finds a comment box by its labelled editor and Comment button, with the post read from its comments', () => {
+    document.body.innerHTML = fixture('linkedin-feed-comment-box.html');
+    const composer = findLinkedInComposer(
+      required('#feed-comment-submit span'),
+      ORIGIN,
+    );
+
+    expect(composer).toMatchObject({
+      kind: 'comment',
+      parent: {
+        externalId: ugcParent,
+        url: `${ORIGIN}/feed/update/${ugcParent}/`,
+      },
+    });
+    expect(composer?.editor.textContent).toBe('Own reply');
+    expect(composer?.root.id).toBe('feed-comment-box');
+    expect(linkedInBaselineIds(document, ORIGIN)).toContain(ugcOldComment);
+  });
+
+  it('gives no composer for a post with no comments to read its URN from, or another button', () => {
+    document.body.innerHTML = fixture('linkedin-feed-comment-box.html');
+    required('[data-testid^="commentList"]').remove();
+
+    expect(
+      findLinkedInComposer(required('#feed-comment-submit'), ORIGIN),
+    ).toBeNull();
+    expect(
+      findLinkedInComposer(
+        required('button[aria-label="Share photo"]'),
+        ORIGIN,
+      ),
+    ).toBeNull();
+  });
+
+  it('anchors a reply box inside a comment on that comment', () => {
+    document.body.innerHTML = fixture('linkedin-feed-comment-box.html');
+    required('[componentkey^="CommentComponentReference_"]').append(
+      required('#feed-comment-box'),
+    );
+    required('[componentkey^="CommentComponentReference_"] > button').remove();
+
+    expect(
+      findLinkedInComposer(required('#feed-comment-submit'), ORIGIN)?.parent,
+    ).toEqual({
+      externalId: ugcOldComment,
+      url: `${ORIGIN}/feed/update/${ugcParent}/`,
+    });
+  });
+
+  it('confirms only the new comment with the submitted text under that post', () => {
+    document.body.innerHTML =
+      fixture('linkedin-feed-comment-box.html') +
+      fixture('linkedin-feed-comment-published.html');
+
+    expect(
+      matchingLinkedInPublicationCandidates(
+        document,
+        feedAttempt,
+        startedAt + 1000,
+      ),
+    ).toEqual([
+      {
+        externalId: ugcNewComment,
+        url: `${ORIGIN}/feed/update/${ugcParent}/?${new URLSearchParams({ commentUrn: ugcNewComment })}`,
+        authorHandle: 'own-author',
+        publicationDate: new Date(startedAt + 3000).toISOString(),
+      },
+    ]);
+    expect(
+      matchingLinkedInPublicationCandidates(
+        document,
+        { ...feedAttempt, description: 'Something else' },
+        startedAt + 1000,
+      ),
+    ).toEqual([]);
+  });
 });
