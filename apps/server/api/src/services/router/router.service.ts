@@ -782,6 +782,7 @@ export class RouterService {
         (model) =>
           (options.eligibleModelKeys === undefined ||
             options.eligibleModelKeys.includes(model.key)) &&
+          !options.excludedModelKeys?.includes(model.key) &&
           (!options.requiresEndFrame || hasEndFrame(model.key)),
       );
       const models = await this.restrictToQuotableModels(

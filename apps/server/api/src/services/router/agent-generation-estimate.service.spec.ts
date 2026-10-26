@@ -257,11 +257,61 @@ describe('AgentGenerationEstimateService', () => {
       await service.estimate({ ...input, category: ModelCategory.VIDEO }),
     ).toMatchObject({ credits: 100, isAvailable: true });
   });
+  it('names the model whose price cannot be confirmed', async () => {
+    validateModelForOrg.mockResolvedValue({ ...model, cost: 0 });
+    expect(await service.estimate({ ...input, modelKey: model.key })).toEqual({
+      ...unavailable(AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED),
+      modelKey: model.key,
+    });
+  });
   it('rejects a zero cost without an explicit free designation', async () => {
     validateModelForOrg.mockResolvedValue({ ...model, cost: 0 });
-    expect(await service.estimate(input)).toEqual(
-      unavailable(AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED),
+    expect(await service.estimate(input)).toMatchObject({
+      isAvailable: false,
+      unavailableReason:
+        AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED,
+    });
+  });
+  it('moves Auto past a model with no confirmed price to the next one that quotes', async () => {
+    selectModel
+      .mockResolvedValueOnce({ modelDetails: { key: 'unpriced/model' } })
+      .mockResolvedValueOnce({ modelDetails: { key: model.key } });
+    // The quote reads the row validated last, as the service's own lookup does.
+    let validated = model.key;
+    validateModelForOrg.mockImplementation(async (key?: string) => {
+      validated = key ?? validated;
+      return validated === model.key
+        ? model
+        : { ...model, key: validated, cost: 0 };
+    });
+    expect(await service.estimate(input)).toEqual({
+      credits: 50,
+      isAvailable: true,
+      modelKey: model.key,
+    });
+    expect(selectModel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ excludedModelKeys: ['unpriced/model'] }),
     );
+  });
+  it('reports the first unpriceable model when Auto runs out of models to try', async () => {
+    selectModel
+      .mockResolvedValueOnce({ modelDetails: { key: 'unpriced/first' } })
+      .mockResolvedValueOnce({ modelDetails: { key: 'unpriced/second' } })
+      .mockRejectedValueOnce(new ForbiddenException('No models enabled'));
+    let validated = model.key;
+    validateModelForOrg.mockImplementation(async (key?: string) => {
+      validated = key ?? validated;
+      return { ...model, key: validated, cost: 0 };
+    });
+    expect(await service.estimate(input)).toEqual({
+      ...unavailable(AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED),
+      modelKey: 'unpriced/first',
+    });
+  });
+  it('does not retry an explicit model that cannot be priced', async () => {
+    validateModelForOrg.mockResolvedValue({ ...model, cost: 0 });
+    await service.estimate({ ...input, modelKey: model.key });
+    expect(selectModel).not.toHaveBeenCalled();
   });
   it.each([
     { key: 'retired-successor' },
@@ -269,11 +319,6 @@ describe('AgentGenerationEstimateService', () => {
     { isActive: false },
     { isDeleted: true },
     { organizationId: 'foreign' },
-    { cost: undefined },
-    { cost: null },
-    { cost: Number.NaN },
-    { cost: Infinity },
-    { cost: -1 },
   ])(
     'rejects unavailable model row %j without exposing a key',
     async (override) => {
@@ -285,6 +330,24 @@ describe('AgentGenerationEstimateService', () => {
         modelKey: null,
       });
       expect(quote.unavailableReason).toBeDefined();
+    },
+  );
+  it.each([
+    { cost: undefined },
+    { cost: null },
+    { cost: Number.NaN },
+    { cost: Infinity },
+    { cost: -1 },
+  ])(
+    'reports an unpriceable cost row %j as unresolved for that model',
+    async (override) => {
+      validateModelForOrg.mockResolvedValue({ ...model, ...override });
+      expect(await service.estimate(input)).toEqual({
+        ...unavailable(
+          AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED,
+        ),
+        modelKey: model.key,
+      });
     },
   );
   it.each([
@@ -396,9 +459,10 @@ describe('AgentGenerationEstimateService', () => {
         organizationId: 'org-1',
         outputs: 4,
       }),
-    ).toEqual(
-      unavailable(AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED),
-    );
+    ).toEqual({
+      ...unavailable(AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED),
+      modelKey: 'ideogram-ai/ideogram-4-5',
+    });
     expect(resolveModelKey).toHaveBeenCalledWith({
       category: ModelCategory.IMAGE_EDIT,
       organizationId: 'org-1',
