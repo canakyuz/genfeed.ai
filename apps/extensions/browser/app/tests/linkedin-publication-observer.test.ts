@@ -655,3 +655,35 @@ describe('the newer LinkedIn feed layout', () => {
     ).toEqual([]);
   });
 });
+
+describe('the newer LinkedIn share box', () => {
+  it('finds its Post button on the share screen, and nothing for a mixed or doubled screen', () => {
+    document.body.innerHTML = fixture('linkedin-feed-share-box.html');
+    const composer = findLinkedInComposer(required('#share-post span'), ORIGIN);
+    expect(composer).toMatchObject({ kind: 'post', parent: null });
+    expect(composer?.editor.textContent).toBe('Own authored text');
+    expect(
+      findLinkedInComposer(required('button[aria-label="Media"]'), ORIGIN),
+    ).toBeNull();
+
+    required('#share-screen').insertAdjacentHTML(
+      'beforeend',
+      '<div contenteditable="true" role="textbox" aria-label="Text editor for creating comment"></div>',
+    );
+    expect(findLinkedInComposer(required('#share-post'), ORIGIN)).toBeNull();
+  });
+
+  it('confirms the new post from a link announced in a live region', () => {
+    document.body.innerHTML = `<div aria-live="polite"><a href="${postPermalink}">View post</a></div>`;
+    const found = matchingLinkedInPublicationCandidates(
+      document,
+      postAttempt,
+      startedAt + 1000,
+    );
+    expect(found).toEqual([
+      expect.objectContaining({ externalId: postUrn, url: postPermalink }),
+    ]);
+    // A live region that announced the post before Post was pressed is baseline, not new.
+    expect(linkedInBaselineIds(document, ORIGIN)).toContain(postUrn);
+  });
+});

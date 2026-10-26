@@ -37,14 +37,19 @@ const FEED_EDITOR =
   '[role="textbox"][contenteditable="true"][aria-label^="Text editor for creating"]';
 const FEED_SUBMIT_LABELS = ['comment', 'reply'];
 const FEED_COMPOSER_DEPTH = 8;
+// The newer share box is its own screen with one marked editor and a button reading Post.
+const FEED_SHARE_SCREEN = '[data-sdui-screen$=".sharing.ShareCompose"]';
+const FEED_SHARE_EDITOR =
+  '[componentkey="ShareBox_textEditor"][contenteditable="true"]';
 const COMMENT_ACTOR =
   '.comments-comment-meta a[href*="/in/"], .comments-post-meta a[href*="/in/"]';
 const UPDATE_BODY =
   '.update-components-text, .feed-shared-update-v2__description, .feed-shared-text';
 const UPDATE_ACTOR =
   '.update-components-actor a[href*="/in/"], .feed-shared-actor a[href*="/in/"]';
+// The newer layout drops the artdeco classes; its notices are announced through live regions.
 const TOAST_LINKS =
-  '.artdeco-toast-item a[href], .artdeco-toasts a[href], [data-test-artdeco-toast-item] a[href]';
+  '.artdeco-toast-item a[href], .artdeco-toasts a[href], [data-test-artdeco-toast-item] a[href], [role="alert"] a[href], [role="status"] a[href], [aria-live="polite"] a[href], [aria-live="assertive"] a[href]';
 const POST_URN = /^urn:li:(?:activity|share|ugcPost):\d+$/;
 const POST_PATH =
   /^\/feed\/update\/(urn:li:(?:activity|share|ugcPost):\d+)\/?$/;
@@ -115,7 +120,10 @@ export function findLinkedInComposer(
   if (!(target instanceof Element)) return null;
   const post = target.closest<HTMLElement>(POST_SUBMIT);
   const comment = post ? null : target.closest<HTMLElement>(COMMENT_SUBMIT);
-  if (!post && !comment) return findFeedCommentComposer(target, origin);
+  if (!post && !comment)
+    return (
+      findFeedShareComposer(target) ?? findFeedCommentComposer(target, origin)
+    );
   const submit = post ?? comment;
   const root = post
     ? post.closest('[role="dialog"]')
@@ -132,6 +140,25 @@ export function findLinkedInComposer(
   const parent = parentOf(root, origin);
   return parent
     ? { root, editor: editors[0], submit, kind: 'comment', parent }
+    : null;
+}
+/** The newer share box: its Post button, on the share screen holding exactly one share editor. */
+function findFeedShareComposer(
+  target: Element,
+): LinkedInPublicationComposer | null {
+  const submit = target.closest<HTMLElement>('button');
+  const root = submit?.closest(FEED_SHARE_SCREEN);
+  if (!submit || !root || submit.textContent?.trim().toLowerCase() !== 'post')
+    return null;
+  const editors = root.querySelectorAll<HTMLElement>(FEED_SHARE_EDITOR);
+  const posts = [...root.querySelectorAll('button')].filter(
+    (button) => button.textContent?.trim().toLowerCase() === 'post',
+  );
+  // A share screen never holds a comment box; refuse a mixed container.
+  return editors.length === 1 &&
+    posts.length === 1 &&
+    !root.querySelector(FEED_EDITOR)
+    ? { root, editor: editors[0], submit, kind: 'post', parent: null }
     : null;
 }
 /**
