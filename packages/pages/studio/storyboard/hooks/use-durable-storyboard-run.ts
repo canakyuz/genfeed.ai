@@ -543,6 +543,26 @@ export function useDurableStoryboardRun(runId: string) {
     },
     [brandId, runId, getService, scope],
   );
+  const estimateLongForm = useCallback(
+    async (revision: number, signal?: AbortSignal) => {
+      if (!brandId || activeScope.current !== scope)
+        throw new Error('Storyboard scope changed.');
+      const service = await getService();
+      try {
+        return await service.estimateStoryboardLongForm(
+          brandId,
+          runId,
+          { expectedRevision: revision },
+          signal,
+        );
+      } catch (error) {
+        throw new Error(
+          getJsonApiErrorMessage(error, 'Could not price the whole video.'),
+        );
+      }
+    },
+    [brandId, runId, getService, scope],
+  );
   const renderPresenter = useCallback(
     async (track: StoryboardPresenterTrack, quote: StoryboardARollQuote) => {
       if (!brandId || activeScope.current !== scope)
@@ -689,6 +709,7 @@ export function useDurableStoryboardRun(runId: string) {
       generateCutaways,
       quotePresenter,
       renderPresenter,
+      estimateLongForm,
       assembleLongForm,
     },
   };

@@ -4,7 +4,6 @@ import { StoryboardLongFormAssemblyService } from '@api/collections/content-runs
 import type { StoryboardARollChunk } from '@genfeedai/contracts/api-types/contracts/storyboard-a-roll.contract';
 import type { StoryboardCutaway } from '@genfeedai/contracts/api-types/contracts/storyboard-plan.contract';
 import type { StoryboardNativeRunConfig } from '@genfeedai/contracts/api-types/contracts/storyboard-run.contract';
-import { ConflictException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 
 const SENTENCE = `${'word '.repeat(19)}end.`;

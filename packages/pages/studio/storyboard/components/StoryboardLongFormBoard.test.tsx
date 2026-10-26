@@ -107,6 +107,18 @@ function actions(): StoryboardLongFormActions {
       total: 30,
     })),
     renderPresenter: vi.fn(async () => runWith()),
+    estimateLongForm: vi.fn(async () => ({
+      revision: 3,
+      billingMode: 'platform' as const,
+      cutaways: { parts: 1, credits: 2 },
+      animatic: { parts: 1, credits: 1, seconds: 65 },
+      presenter: {
+        parts: 0,
+        credits: 0,
+        problem: 'Approve the storyboard before rendering the presenter.',
+      },
+      totalCredits: 3,
+    })),
     assembleLongForm: vi.fn(async () => ({
       editorProjectId: 'project-9',
       skippedCutawayIds: [],
@@ -211,6 +223,19 @@ describe('StoryboardLongFormBoard', () => {
     );
     expect(props.actions?.assembleLongForm).toHaveBeenCalledWith('aRoll');
     expect(mocks.warning).not.toHaveBeenCalled();
+  });
+
+  it('shows what the whole video still costs before any step runs', async () => {
+    const props = renderBoard();
+    expect(
+      await screen.findByText(
+        'The whole video still costs about 3 credits. Each step asks before it charges. Approve the storyboard before rendering the presenter.',
+      ),
+    ).toBeTruthy();
+    expect(props.actions?.estimateLongForm).toHaveBeenCalledWith(
+      3,
+      expect.any(AbortSignal),
+    );
   });
 
   it('says which cutaways stayed out of the edit', async () => {

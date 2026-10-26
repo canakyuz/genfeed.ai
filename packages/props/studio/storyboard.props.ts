@@ -8,6 +8,7 @@ import type { QuoteBrandRemixScenes } from '@genfeedai/contracts/api-types/contr
 import type {
   StoryboardARollQuote,
   StoryboardLongFormAssembly,
+  StoryboardLongFormEstimate,
   StoryboardPresenterTrack,
 } from '@genfeedai/contracts/api-types/contracts/storyboard-a-roll.contract';
 import type { StoryboardCharacterReplacement } from '@genfeedai/contracts/api-types/contracts/storyboard-character-replace.contract';
@@ -244,6 +245,11 @@ export interface StoryboardLongFormActions {
     track: StoryboardPresenterTrack,
     quote: StoryboardARollQuote,
   ) => Promise<StoryboardRun>;
+  /** Everything the video still costs at this revision; charges nothing. */
+  readonly estimateLongForm: (
+    revision: number,
+    signal?: AbortSignal,
+  ) => Promise<StoryboardLongFormEstimate>;
   /** Opens the animatic or the finished edit as an Editor project. */
   readonly assembleLongForm: (
     track: StoryboardPresenterTrack,

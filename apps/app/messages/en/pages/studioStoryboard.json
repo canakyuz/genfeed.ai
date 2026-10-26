@@ -480,6 +480,8 @@
   },
   "longForm": {
     "productionTitle": "Make the video",
+    "estimateCredits": "The whole video still costs about {credits} credits. Each step asks before it charges.",
+    "estimateByok": "The whole video runs on your own provider keys. Each step asks before it starts.",
     "brollTitle": "B-roll stills",
     "brollProgress": "{ready} of {total} cutaways have footage",
     "brollDraw": "Draw missing stills",
