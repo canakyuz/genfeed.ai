@@ -45,6 +45,10 @@
     "verifyEmailClick": "Click the link in the email to finish creating your account.",
     "verifyEmailSentTo": "We sent a verification link to"
   },
+  "authShowcase": {
+    "pause": "Pause background video",
+    "play": "Play background video"
+  },
   "actions": {
     "cancel": "Cancel",
     "clearFilters": "Clear Filters",
