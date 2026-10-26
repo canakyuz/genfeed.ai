@@ -36,9 +36,16 @@ const MODEL_CATEGORY_TO_PROMPT_CATEGORY: Record<
   voice: PromptCategory.MODELS_PROMPT_MUSIC,
 };
 
-export interface UseStudioPromptEnhancementParams {
-  brandId: string;
+export interface UsePromptTextEnhancementParams {
+  /** Left out for an unbranded thread, which is enhanced without a brand. */
+  brandId?: string;
   contentType?: 'image' | 'video';
+  /**
+   * Reads the composer's text as it is right now. A composer that updates
+   * `prompt` on a delay (Agent debounces typing) supplies this so Enhance acts
+   * on what the operator sees, not on the last settled value.
+   */
+  getLivePrompt?: () => string;
   modelKey: string;
   onPromptChange: (text: string) => void;
   prompt: string;
@@ -53,7 +60,7 @@ export interface UseStudioPromptEnhancementParams {
   };
 }
 
-export interface UseStudioPromptEnhancementResult {
+export interface UsePromptTextEnhancementResult {
   /** Aborts a pending enhancement; safe to call when idle. */
   cancelEnhance: () => void;
   /** Never starts a generation — only replaces the composer's prompt text. */
@@ -68,7 +75,9 @@ export interface UseStudioPromptEnhancementResult {
 }
 
 /**
- * Studio composer's "Enhance prompt" action (#4676 FR6/FR7). Reuses the same
+ * The composers' shared "Enhance prompt" action (#4676 FR6/FR7), used by Studio
+ * and Agent. An Agent composer has no model of its own and passes an empty
+ * `modelKey`; the output type then comes from `contentType`. Reuses the same
  * backend flow as `usePromptBarEnhancement`
  * (packages/hooks/prompt-bar/use-prompt-bar-enhancement) — POST `/prompts`
  * with `isSkipEnhancement: false`, then wait on the prompt's WebSocket
@@ -85,20 +94,21 @@ export interface UseStudioPromptEnhancementResult {
  * token and a mounted flag so a cancelled or unmounted enhancement can never
  * fire a toast or apply a stale result.
  */
-export function useStudioPromptEnhancement({
+export function usePromptTextEnhancement({
   brandId,
   contentType,
+  getLivePrompt,
   modelKey,
   onPromptChange,
   prompt,
   resolveRequestedSkills,
-}: UseStudioPromptEnhancementParams): UseStudioPromptEnhancementResult {
+}: UsePromptTextEnhancementParams): UsePromptTextEnhancementResult {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [previousPrompt, setPreviousPrompt] = useState<string | null>(null);
   const [successfulEnhancement, setSuccessfulEnhancement] = useState<{
     text: string;
     promptId: string;
-    brandId: string;
+    brandId?: string;
     modelKey: string;
     contentType?: 'image' | 'video';
   } | null>(null);
@@ -106,6 +116,12 @@ export function useStudioPromptEnhancement({
   scopeRef.current = { brandId, contentType, modelKey };
   const promptRef = useRef(prompt);
   promptRef.current = prompt;
+  const getLivePromptRef = useRef(getLivePrompt);
+  getLivePromptRef.current = getLivePrompt;
+  const readPrompt = useCallback(
+    () => getLivePromptRef.current?.() ?? promptRef.current,
+    [],
+  );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -199,7 +215,7 @@ export function useStudioPromptEnhancement({
     // enhancement with those stripped. Staleness and undo compare against what
     // the operator can actually see, or a picked skill would make every
     // enhancement look like a concurrent edit and get discarded.
-    const originalPrompt = promptRef.current;
+    const originalPrompt = readPrompt();
     const raw = originalPrompt.trim();
     const resolved = resolveRequestedSkillsRef.current?.(raw);
     const text = resolved?.content.trim() ?? raw;
@@ -240,7 +256,8 @@ export function useStudioPromptEnhancement({
           category: promptCategory,
           isSkipEnhancement: false,
           // Auto is a UI sentinel, not a model the API accepts.
-          model: isAutoStudioModelKey(modelKey) ? undefined : modelKey,
+          model:
+            modelKey && !isAutoStudioModelKey(modelKey) ? modelKey : undefined,
           original: text,
           ...(requestedSkillSlugs.length > 0 ? { requestedSkillSlugs } : {}),
         }),
@@ -274,7 +291,7 @@ export function useStudioPromptEnhancement({
             // Only replace the prompt if the operator has not edited it
             // since the request was sent — never clobber a live edit with a
             // stale enhancement result.
-            if (promptRef.current === originalPrompt) {
+            if (readPrompt() === originalPrompt) {
               setSuccessfulEnhancement({
                 text: result,
                 promptId: created.id,
@@ -329,6 +346,7 @@ export function useStudioPromptEnhancement({
     modelKey,
     notificationsService,
     onPromptChange,
+    readPrompt,
     subscribe,
   ]);
 

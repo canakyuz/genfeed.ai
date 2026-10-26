@@ -69,7 +69,7 @@ vi.mock('@utils/network/websocket.util', () => ({
   WebSocketPaths: { prompt: (id: string) => `prompt:${id}` },
 }));
 
-import { useStudioPromptEnhancement } from '@pages/studio/playground/hooks/useStudioPromptEnhancement';
+import { usePromptTextEnhancement } from './use-prompt-text-enhancement';
 
 function getSubscribedHandler() {
   return mockSubscribe.mock.calls[0]?.[1] as {
@@ -78,7 +78,7 @@ function getSubscribedHandler() {
   };
 }
 
-describe('useStudioPromptEnhancement', () => {
+describe('usePromptTextEnhancement', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSubscribe.mockReturnValue(mockUnsubscribe);
@@ -89,7 +89,7 @@ describe('useStudioPromptEnhancement', () => {
     const { result, rerender } = renderHook(
       ({ contentType }: { contentType: 'image' | 'video' }) => {
         const [prompt, setPrompt] = useState('A coast');
-        return useStudioPromptEnhancement({
+        return usePromptTextEnhancement({
           brandId: 'brand-1',
           modelKey: '',
           contentType,
@@ -111,7 +111,7 @@ describe('useStudioPromptEnhancement', () => {
 
   it('omits the Auto sentinel so the API never sees it as a model', async () => {
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         contentType: 'video',
         modelKey: '__auto_model__',
@@ -127,7 +127,7 @@ describe('useStudioPromptEnhancement', () => {
 
   it('starts idle', () => {
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange: vi.fn(),
@@ -142,7 +142,7 @@ describe('useStudioPromptEnhancement', () => {
   it('does nothing for an empty prompt — never blocks or starts a generation', async () => {
     const onPromptChange = vi.fn();
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -160,7 +160,7 @@ describe('useStudioPromptEnhancement', () => {
 
   it('posts an unskipped-enhancement prompt and subscribes for the result', async () => {
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange: vi.fn(),
@@ -186,10 +186,26 @@ describe('useStudioPromptEnhancement', () => {
     expect(result.current.isEnhancing).toBe(true);
   });
 
+  it('enhances the live composer text when the settled prompt has not caught up', async () => {
+    const { result } = renderHook(() =>
+      usePromptTextEnhancement({
+        brandId: 'brand-1',
+        contentType: 'image',
+        getLivePrompt: () => 'A coast at dusk',
+        modelKey: '',
+        onPromptChange: vi.fn(),
+        prompt: '',
+      }),
+    );
+    await act(async () => result.current.enhancePrompt());
+    expect(mockPromptsPost).toHaveBeenCalledOnce();
+    expect(mockPromptsPost.mock.calls[0][0].original).toBe('A coast at dusk');
+  });
+
   it('replaces the prompt in place when enhancement completes, without generating', async () => {
     const onPromptChange = vi.fn();
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -216,7 +232,7 @@ describe('useStudioPromptEnhancement', () => {
     const onPromptChange = vi.fn();
     const { rerender, result } = renderHook(
       (props: { prompt: string }) =>
-        useStudioPromptEnhancement({
+        usePromptTextEnhancement({
           brandId: 'brand-1',
           modelKey: 'openai/dall-e-3',
           onPromptChange,
@@ -251,7 +267,7 @@ describe('useStudioPromptEnhancement', () => {
     // operator had edited it mid-flight.
     const onPromptChange = vi.fn();
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -292,7 +308,7 @@ describe('useStudioPromptEnhancement', () => {
   it('restores the previous prompt on undo', async () => {
     const onPromptChange = vi.fn();
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -319,7 +335,7 @@ describe('useStudioPromptEnhancement', () => {
   it('cancelEnhance stops a pending request and ignores its eventual result', async () => {
     const onPromptChange = vi.fn();
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -348,7 +364,7 @@ describe('useStudioPromptEnhancement', () => {
 
   it('cancelEnhance is a harmless no-op when idle', () => {
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange: vi.fn(),
@@ -367,7 +383,7 @@ describe('useStudioPromptEnhancement', () => {
   it('keeps the original prompt and notifies on failure', async () => {
     const onPromptChange = vi.fn();
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -393,7 +409,7 @@ describe('useStudioPromptEnhancement', () => {
   it('notifies and stays enhancable when the POST itself fails', async () => {
     mockPromptsPost.mockRejectedValueOnce(new Error('network down'));
     const { result } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange: vi.fn(),
@@ -414,7 +430,7 @@ describe('useStudioPromptEnhancement', () => {
   it('never notifies or applies a result after the component unmounts (#4676)', async () => {
     const onPromptChange = vi.fn();
     const { result, unmount } = renderHook(() =>
-      useStudioPromptEnhancement({
+      usePromptTextEnhancement({
         brandId: 'brand-1',
         modelKey: 'openai/dall-e-3',
         onPromptChange,
@@ -442,7 +458,7 @@ describe('useStudioPromptEnhancement', () => {
     try {
       const { result } = renderHook(() => {
         const [prompt, setPrompt] = useState('Original');
-        return useStudioPromptEnhancement({
+        return usePromptTextEnhancement({
           brandId: 'brand-1',
           modelKey: 'openai/dall-e-3',
           prompt,
@@ -466,7 +482,7 @@ describe('useStudioPromptEnhancement', () => {
     const { result } = renderHook(() => {
       const [prompt, setPrompt] = useState('Original');
       return {
-        ...useStudioPromptEnhancement({
+        ...usePromptTextEnhancement({
           brandId: 'brand-1',
           modelKey: 'openai/dall-e-3',
           prompt,
@@ -502,7 +518,7 @@ describe('useStudioPromptEnhancement', () => {
       const { result, rerender } = renderHook(
         (scope) => {
           const [prompt, setPrompt] = useState('Original');
-          return useStudioPromptEnhancement({
+          return usePromptTextEnhancement({
             ...scope,
             prompt,
             onPromptChange: setPrompt,
@@ -526,7 +542,7 @@ describe('useStudioPromptEnhancement', () => {
     const onPromptChange = vi.fn();
     const { result, rerender } = renderHook(
       ({ brandId }) =>
-        useStudioPromptEnhancement({
+        usePromptTextEnhancement({
           brandId,
           modelKey: 'openai/dall-e-3',
           prompt: 'Original',
