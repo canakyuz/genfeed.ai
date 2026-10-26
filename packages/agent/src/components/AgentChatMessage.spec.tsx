@@ -1,6 +1,7 @@
 import '@agent-tests/media-preview-mocks';
 import { AgentChatMessage } from '@genfeedai/agent/components/AgentChatMessage';
 import type { AgentChatMessage as AgentChatMessageType } from '@genfeedai/agent/models/agent-chat.model';
+import type { KnowledgeReceipt } from '@genfeedai/contracts/interfaces';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { SCROLL_FOCUS_SURFACE_CLASS } from '@ui/styles/scroll-focus';
 import type { ReactNode } from 'react';
@@ -162,6 +163,45 @@ describe('AgentChatMessage', () => {
       user.container.querySelector('[data-message-role="user"]'),
     ).toHaveClass('-mx-3');
     expect(user.getByTestId('agent-user-prompt')).toBeTruthy();
+  });
+
+  it('shows the verified sources behind an assistant answer', () => {
+    render(
+      <AgentChatMessage
+        message={{
+          ...buildMessage('assistant', 'We ship every Thursday [1].'),
+          metadata: {
+            knowledgeCitations: {
+              citations: [
+                {
+                  marker: 1,
+                  receipt: {
+                    excerpt: 'Releases go out on Thursdays.',
+                    kind: 'TEXT',
+                    purpose: 'BRAND_TRUTH',
+                    relevance: 0.9,
+                    sourceId: 'source-1',
+                    title: 'Release calendar',
+                    version: 3,
+                    versionId: 'version-3',
+                  } as KnowledgeReceipt,
+                },
+              ],
+              unsupportedCount: 0,
+            },
+          },
+        }}
+      />,
+    );
+
+    const sources = screen.getByRole('region', { name: 'Sources' });
+    expect(sources).toHaveTextContent('Release calendar');
+    expect(sources).toHaveTextContent('Releases go out on Thursdays.');
+  });
+
+  it('does not show a sources list on answers without citations', () => {
+    render(<AgentChatMessage message={buildMessage('assistant', 'Hello')} />);
+    expect(screen.queryByTestId('knowledge-citations')).not.toBeInTheDocument();
   });
 
   it('does not truncate long assistant content', () => {
