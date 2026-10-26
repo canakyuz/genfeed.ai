@@ -15,6 +15,7 @@ import {
   isHostedGenfeedFromBrowser,
   isHostedGenfeedFromEnv,
   isHostedGenfeedHostname,
+  isProductionCloudFromReader,
   isSaaS,
   isSelfHostedDeployment,
   parseTrustProxy,
@@ -106,6 +107,21 @@ describe('isHostedGenfeedCloud', () => {
     vi.stubEnv('NEXT_PUBLIC_GENFEED_CLOUD', '1');
 
     expect(getDeployment()).toBe('cloud');
+  });
+
+  it('keeps an explicit false flag authoritative on a hosted browser hostname outside production', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('GENFEED_CLOUD', 'false');
+    vi.stubEnv('NEXT_PUBLIC_GENFEED_CLOUD', '');
+    vi.stubEnv('GENFEEDAI_API_PUBLIC_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_APPS_APP_ENDPOINT', '');
+    Object.defineProperty(globalThis, 'location', {
+      configurable: true,
+      value: { hostname: 'app.genfeed.ai' },
+      writable: true,
+    });
+
+    expect(getDeployment()).toBe('self-hosted');
   });
 
   it('is true from the browser hostname on app.genfeed.ai', () => {
@@ -383,6 +399,45 @@ describe('production deployment', () => {
     });
 
     expect(getDeployment()).toBe('cloud');
+  });
+});
+
+describe('isProductionCloudFromReader', () => {
+  const read = (env: Record<string, unknown>) => (key: string) => env[key];
+
+  it('is true for production on a hosted URL', () => {
+    expect(
+      isProductionCloudFromReader(
+        read({
+          GENFEEDAI_APP_URL: 'https://app.genfeed.ai',
+          NODE_ENV: 'production',
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('is false outside production, for non-hosted URLs and for non-string values', () => {
+    expect(
+      isProductionCloudFromReader(
+        read({
+          GENFEEDAI_APP_URL: 'https://app.genfeed.ai',
+          NODE_ENV: 'test',
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isProductionCloudFromReader(
+        read({
+          GENFEEDAI_APP_URL: 'https://app.example.com',
+          NODE_ENV: 'production',
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isProductionCloudFromReader(
+        read({ GENFEEDAI_APP_URL: 42, NODE_ENV: 'production' }),
+      ),
+    ).toBe(false);
   });
 });
 

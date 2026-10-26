@@ -203,6 +203,25 @@ export function getDeploymentFromReader(readEnv: EnvValueReader): Deployment {
   return isHostedGenfeedFromReader(readEnv) ? 'cloud' : 'self-hosted';
 }
 
+/**
+ * True for a production process that resolves to Cloud. Takes a reader that
+ * returns unknown values (e.g. a Nest `ConfigService`); non-strings are
+ * treated as unset.
+ */
+export function isProductionCloudFromReader(
+  read: (key: string) => unknown,
+): boolean {
+  const readEnv: EnvValueReader = (key) => {
+    const value = read(key);
+    return typeof value === 'string' ? value : undefined;
+  };
+
+  return (
+    readEnv('NODE_ENV')?.trim() === 'production' &&
+    getDeploymentFromReader(readEnv) === 'cloud'
+  );
+}
+
 /** An Express `trust proxy` value: on/off, a hop count, or proxy addresses/subnets. */
 export type TrustProxySetting = boolean | number | string[];
 
@@ -249,10 +268,19 @@ export function resolveTrustProxyFromReader(
 }
 
 export function getDeployment(): Deployment {
-  // The browser hostname always wins: `*.genfeed.ai` is Cloud on the client
-  // exactly as the URL keys make it Cloud on the server.
+  // `*.genfeed.ai` is Cloud on the client exactly as the URL keys make it Cloud
+  // on the server. Outside production an explicit flag still wins.
   if (isHostedGenfeedFromBrowser()) {
-    return 'cloud';
+    const hasExplicitFlag = Boolean(
+      readDeploymentEnv('GENFEED_CLOUD')?.trim() ||
+        readDeploymentEnv('NEXT_PUBLIC_GENFEED_CLOUD')?.trim(),
+    );
+    if (
+      readDeploymentEnv('NODE_ENV')?.trim() === 'production' ||
+      !hasExplicitFlag
+    ) {
+      return 'cloud';
+    }
   }
 
   return getDeploymentFromReader(readDeploymentEnv);

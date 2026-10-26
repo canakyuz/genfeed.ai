@@ -1,5 +1,6 @@
-vi.mock('@genfeedai/config', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@genfeedai/config')>();
+vi.mock('@genfeedai/config/deployment', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@genfeedai/config/deployment')>();
 
   return {
     ...actual,
@@ -233,7 +234,7 @@ describe('StripeService — coverage spec', () => {
       const configGet = buildConfigGet();
       configGet.mockImplementation((key: string) => {
         if (key === 'NODE_ENV') return 'production';
-        if (key === 'GENFEED_CLOUD') return '1';
+        if (key === 'GENFEEDAI_APP_URL') return 'https://app.genfeed.ai';
         if (key === 'STRIPE_PRICE_SUBSCRIPTION_SCALE_MONTHLY') return '';
         return buildConfigGet()(key);
       });
@@ -246,11 +247,26 @@ describe('StripeService — coverage spec', () => {
       expect(retrieve).not.toHaveBeenCalled();
     });
 
+    it('ignores the Cloud flag in production without a *.genfeed.ai URL', async () => {
+      const configGet = buildConfigGet();
+      configGet.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'production';
+        if (key === 'GENFEED_CLOUD') return 'true';
+        if (key === 'STRIPE_PRICE_SUBSCRIPTION_SCALE_MONTHLY') return '';
+        return buildConfigGet()(key);
+      });
+      const production = await buildModule(configGet);
+
+      await expect(
+        production.service.onApplicationBootstrap(),
+      ).resolves.toBeUndefined();
+    });
+
     it('fails production startup when the Scale price identifier is malformed', async () => {
       const configGet = buildConfigGet();
       configGet.mockImplementation((key: string) => {
         if (key === 'NODE_ENV') return 'production';
-        if (key === 'GENFEED_CLOUD') return '1';
+        if (key === 'GENFEEDAI_APP_URL') return 'https://app.genfeed.ai';
         if (key === 'STRIPE_PRICE_SUBSCRIPTION_SCALE_MONTHLY')
           return 'not-a-price';
         return buildConfigGet()(key);
