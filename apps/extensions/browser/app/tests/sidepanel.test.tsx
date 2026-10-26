@@ -139,6 +139,27 @@ describe('SidePanel', () => {
     );
   });
 
+  it('sends a signed-out or expired session to the login page', async () => {
+    auth.getAuthContext.mockRejectedValue(
+      new Error(
+        'Your Genfeed session expired. Sign in in the web app, then retry.',
+      ),
+    );
+    vi.mocked(chrome.tabs.create).mockResolvedValue({} as never);
+    render(<SidePanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Sign in' }));
+    expect(
+      screen.queryByRole('button', { name: 'Open Genfeed' }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(chrome.tabs.create).toHaveBeenCalledWith({
+        url: expect.stringMatching(
+          /^https:\/\/app\.genfeed\.(ai|localhost)\/login$/,
+        ),
+      }),
+    );
+  });
+
   it('handles a network failure without an unhandled rejection or a false onboarding claim', async () => {
     auth.getAuthContext.mockRejectedValue(new TypeError('Failed to fetch'));
     render(<SidePanel />);

@@ -50,6 +50,9 @@ export const appDomain =
   process.env.PLASMO_PUBLIC_APP_ENDPOINT ||
   (isDevelopment ? 'https://app.genfeed.localhost' : 'https://app.genfeed.ai');
 
+/** Where a signed-out or expired session is sent to sign in again. */
+export const loginUrl = `${appDomain}/login`;
+
 function getOrigin(url: string): string {
   try {
     return new URL(url).origin;

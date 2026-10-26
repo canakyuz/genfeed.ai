@@ -20,7 +20,7 @@ import type {
   SourceCaptureRequest,
 } from '~models/imported-source.model';
 import type { CaptureMode } from '~models/knowledge-capture.model';
-import { appDomain } from '~services/environment.service';
+import { appDomain, loginUrl } from '~services/environment.service';
 import { initializeErrorTracking } from '~services/error-tracking.service';
 import { loadWorkspace } from '~services/workspace.service';
 import { useChatStore } from '~store/use-chat-store';
@@ -255,6 +255,11 @@ function SidePanelContent() {
     );
   }
 
+  // A signed-out or expired session needs the login page, not the app home.
+  const isSignInRequired =
+    authState.status === 'blocked' &&
+    /session expired|sign in to genfeed/i.test(authState.error);
+  const webAppUrl = isSignInRequired ? loginUrl : appDomain;
   const recovery =
     authState.status === 'blocked' ? (
       <div className="flex h-screen flex-col items-center justify-center gap-3 bg-background p-6">
@@ -262,19 +267,27 @@ function SidePanelContent() {
           {authState.error}
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={retryAuth}>
+          <Button
+            type="button"
+            variant={
+              isSignInRequired ? ButtonVariant.SECONDARY : ButtonVariant.DEFAULT
+            }
+            onClick={retryAuth}
+          >
             Retry
           </Button>
           <Button
             type="button"
-            variant={ButtonVariant.SECONDARY}
+            variant={
+              isSignInRequired ? ButtonVariant.DEFAULT : ButtonVariant.SECONDARY
+            }
             onClick={() => {
-              void chrome.tabs.create({ url: appDomain }).catch(() => {
-                window.open(appDomain, '_blank', 'noopener,noreferrer');
+              void chrome.tabs.create({ url: webAppUrl }).catch(() => {
+                window.open(webAppUrl, '_blank', 'noopener,noreferrer');
               });
             }}
           >
-            Open Genfeed
+            {isSignInRequired ? 'Sign in' : 'Open Genfeed'}
           </Button>
         </div>
       </div>
