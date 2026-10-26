@@ -59,6 +59,10 @@ import {
   scheduleApprovedReviewPost,
 } from '@api/services/turbo-run/turbo-run-review-approval';
 import {
+  hasBeenRewritten,
+  recordTurboReviewFeedback,
+} from '@api/services/turbo-run/turbo-run-review-harness-feedback';
+import {
   getSelectedPostIds,
   toReviewInboxItemSummary,
 } from '@api/services/turbo-run/turbo-run-review-items.util';
@@ -239,6 +243,8 @@ export class TurboRunReviewService {
   ): Promise<ITurboRunSummary> {
     if (autonomous)
       await this.prejudgeAutonomousDrafts(turboRunId, itemIds, orgId);
+    let uneditedApprovals: TurboRunItemFull[] = [];
+    let approvedBrandId: string | undefined;
     const updatedTurboRun = await this.withLockedTurboRun(
       turboRunId,
       orgId,
@@ -246,6 +252,18 @@ export class TurboRunReviewService {
         const turboRunItems = resolveTurboRunItems(turboRunRecord);
         const itemIdSet = new Set(itemIds);
         assertExpectedPostSet(turboRunItems, itemIds, expectedPostVersions);
+        // A person approving a draft nobody rewrote is the signal; read it
+        // before the approval mutates the items.
+        uneditedApprovals = autonomous
+          ? []
+          : turboRunItems.filter(
+              (item) =>
+                itemIdSet.has(item.id) &&
+                item.status === TurboRunItemStatus.COMPLETED &&
+                item.reviewDecision !== ReviewDecision.APPROVED &&
+                !hasBeenRewritten(item),
+            );
+        approvedBrandId = turboRunRecord.brandId ?? undefined;
         return this.approveItemsInTransaction(transaction, {
           turboRunId,
           turboRunItems,
@@ -259,6 +277,15 @@ export class TurboRunReviewService {
           selectedPostIds: getSelectedPostIds(turboRunItems, itemIdSet),
         });
       },
+    );
+
+    recordTurboReviewFeedback(
+      this.harnessReviewFeedbackService,
+      uneditedApprovals,
+      ReviewDecision.APPROVED,
+      orgId,
+      approvedBrandId,
+      { userId: createdByUserId },
     );
 
     this.logger.log(`Approved ${itemIds.length} items in run ${turboRunId}`, {
@@ -413,45 +440,6 @@ export class TurboRunReviewService {
     return toTurboRunWithConfig(updated);
   }
 
-  /**
-   * Feeds human rejections/change-requests on generated Turbo run items back
-   * into the brand's harness profile (anti-examples) so future generations
-   * avoid repeating the rejected pattern. Fire-and-forget: the harness
-   * service never throws, but this is still not awaited so a slow or failed
-   * feedback write can never delay or fail the review action itself.
-   */
-  private recordHarnessReviewFeedback(
-    items: TurboRunItemFull[],
-    decision:
-      | typeof ReviewDecision.REJECTED
-      | typeof ReviewDecision.REQUEST_CHANGES,
-    organizationId: string,
-    brandId: string | undefined,
-    reason?: string,
-    userId?: string,
-  ): void {
-    if (!this.harnessReviewFeedbackService || items.length === 0) {
-      return;
-    }
-
-    for (const item of items) {
-      const content = item.caption ?? item.prompt;
-      if (!content) {
-        continue;
-      }
-      void this.harnessReviewFeedbackService.recordReviewDecision({
-        brandId,
-        content,
-        decision,
-        organizationId,
-        reason,
-        sourceId: item.id,
-        sourceType: 'turbo_run_item',
-        userId,
-      });
-    }
-  }
-
   async rejectItems(
     turboRunId: string,
     itemIds: string[],
@@ -581,13 +569,13 @@ export class TurboRunReviewService {
         return turboRun;
       },
     );
-    this.recordHarnessReviewFeedback(
+    recordTurboReviewFeedback(
+      this.harnessReviewFeedbackService,
       changed,
       decision,
       orgId,
       updated.brandId ?? undefined,
-      feedback,
-      actorUserId,
+      { reason: feedback, userId: actorUserId },
     );
     return this.summaryService.toTurboRunSummary(updated);
   }
