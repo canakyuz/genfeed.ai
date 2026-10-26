@@ -9,10 +9,13 @@
 # Lanes:
 #   deterministic  free: harness unit tests, benchmark validation and a stub
 #                  run of every cell. Runs on every trigger.
-#   live           paid: real providers. Fails closed when the cap variable or
-#                  a key is missing. Nightly it is opt-in (CONTENT_EVAL_NIGHTLY)
-#                  and text-only at a third of the cap; after a Release it runs
-#                  every cell. Never a release gate and never a deploy step.
+#   live           paid: real providers. A manual check: it runs on
+#                  workflow_dispatch with dispatcher=live, never after a
+#                  Release. Nightly it is opt-in (CONTENT_EVAL_NIGHTLY) and
+#                  text-only at a third of the cap. It never spends without a
+#                  cap and a key: a dispatch fails when either is missing, the
+#                  opt-in nightly skips with a notice. Never a release gate and
+#                  never a deploy step.
 #
 # This workflow is NOT reusable. full-suite.yml and release.yml must never
 # uses/needs it.
@@ -39,9 +42,6 @@ on:
         required: false
   schedule:
     - cron: "37 4 * * *" # 04:37 UTC — after e2e (02:17), Playwright full (02:47) and learning (03:23)
-  workflow_run:
-    workflows: [Release]
-    types: [completed]
 
 concurrency:
   group: content-eval-smoke-${{ github.event_name }}-${{ github.ref }}
@@ -57,11 +57,6 @@ env:
 jobs:
   deterministic:
     name: Deterministic lane (free)
-    # A Release that did not publish has nothing to smoke.
-    if: >-
-      github.event_name != 'workflow_run'
-      || (github.event.workflow_run.conclusion == 'success'
-        && github.event.workflow_run.event == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -69,7 +64,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Setup Bun environment
         uses: ./.github/actions/setup-bun-env
@@ -114,8 +109,7 @@ jobs:
     needs: [deterministic]
     if: >-
       needs.deterministic.result == 'success'
-      && (github.event_name == 'workflow_run'
-        || (github.event_name == 'workflow_dispatch' && inputs.dispatcher == 'live')
+      && ((github.event_name == 'workflow_dispatch' && inputs.dispatcher == 'live')
         || (github.event_name == 'schedule' && vars.CONTENT_EVAL_NIGHTLY == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -152,7 +146,8 @@ jobs:
       CONTENT_EVAL_GENFEED_API_URL: ${{ vars.CONTENT_EVAL_GENFEED_API_URL }}
       CONTENT_EVAL_KELDER_BRAND_ID: ${{ vars.CONTENT_EVAL_KELDER_BRAND_ID }}
     steps:
-      # Fail closed: no variable, no spend.
+      # Fail closed: no variable, no spend. A manual dispatch asked for spend, so
+      # it fails loudly; the opt-in nightly skips with a notice instead.
       - name: Resolve the spend cap and the cells to run
         id: plan
         env:
@@ -162,14 +157,21 @@ jobs:
           REPO_MAX_CREDITS: ${{ vars.CONTENT_EVAL_MAX_CREDITS }}
         run: |
           set -euo pipefail
+          missing=""
           cap="${INPUT_MAX_CREDITS:-${REPO_MAX_CREDITS:-}}"
           if [ -z "${cap}" ]; then
-            echo "::error::CONTENT_EVAL_MAX_CREDITS is not set and no max_credits was given. The live lane never runs uncapped."
-            exit 1
+            missing="CONTENT_EVAL_MAX_CREDITS is not set and no max_credits was given. The live lane never runs uncapped."
+          elif [ -z "${OPENROUTER_API_KEY}" ]; then
+            missing="Secret CONTENT_EVAL_OPENROUTER_API_KEY is not set."
           fi
-          if [ -z "${OPENROUTER_API_KEY}" ]; then
-            echo "::error::Secret CONTENT_EVAL_OPENROUTER_API_KEY is not set."
-            exit 1
+          if [ -n "${missing}" ]; then
+            if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "::error::${missing}"
+              exit 1
+            fi
+            echo "::notice title=Live lane skipped::${missing} No provider was called."
+            echo "is_skipped=true" >> "${GITHUB_OUTPUT}"
+            exit 0
           fi
           mediums="text,image,video"
           if [ "${EVENT_NAME}" = "schedule" ]; then
@@ -183,21 +185,26 @@ jobs:
           echo "mediums=${mediums}" >> "${GITHUB_OUTPUT}"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.plan.outputs.is_skipped != 'true'
         with:
           persist-credentials: false
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
 
       - name: Setup Bun environment
+        if: steps.plan.outputs.is_skipped != 'true'
         uses: ./.github/actions/setup-bun-env
 
       - name: Build packages
+        if: steps.plan.outputs.is_skipped != 'true'
         run: bunx turbo run build --filter="./packages/*"
 
       - name: Apply Prisma migrations to the eval database
+        if: steps.plan.outputs.is_skipped != 'true'
         run: bun x prisma migrate deploy
         working-directory: packages/prisma
 
       - name: Run the generation smoke
+        if: steps.plan.outputs.is_skipped != 'true'
         env:
           SMOKE_CAP: ${{ steps.plan.outputs.cap }}
           SMOKE_MEDIUMS: ${{ steps.plan.outputs.mediums }}
@@ -209,7 +216,7 @@ jobs:
           --out-dir=reports/content-eval-smoke-live
 
       - name: Upload live reports
-        if: always()
+        if: always() && steps.plan.outputs.is_skipped != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: content-eval-smoke-live-${{ github.run_id }}
