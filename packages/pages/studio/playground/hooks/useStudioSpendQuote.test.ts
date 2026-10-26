@@ -131,4 +131,34 @@ describe('useStudioSpendQuote', () => {
     await vi.waitFor(() => expect(mocks.error).toHaveBeenCalledOnce());
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it('names the model Auto chose when its price cannot be confirmed', async () => {
+    mocks.estimateGenerationCredits.mockResolvedValue({
+      isAvailable: false,
+      modelKey: FLUX.key,
+      unavailableReason: 'PRICING_UNRESOLVED',
+    });
+    const onSubmit = vi.fn();
+    const { result } = renderHook(() => useStudioSpendQuote());
+
+    await act(async () => {
+      result.current.quoteSpend(
+        {
+          models,
+          source: {
+            autoRequest: REQUEST,
+            buildRequest: () => REQUEST,
+            kind: 'server',
+          },
+        },
+        onSubmit,
+      );
+    });
+
+    await vi.waitFor(() => expect(mocks.error).toHaveBeenCalledOnce());
+    expect(mocks.error).toHaveBeenCalledWith(
+      'The price of FLUX.3 could not be confirmed, so nothing was generated. This model has no confirmed price yet.',
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

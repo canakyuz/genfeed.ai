@@ -167,6 +167,28 @@ describe('RouterService', () => {
         service.selectModel({ ...options, eligibleModelKeys: [] }),
       ).rejects.toThrow(ForbiddenException);
     });
+    it('skips models the caller excluded and still ranks the rest', async () => {
+      modelsService.findAllActive.mockResolvedValue([
+        createMockModel({ key: 'unpriced-best', qualityTier: 'ultra' }),
+        createMockModel({ key: 'priced-basic', qualityTier: 'basic' }),
+      ]);
+      const options: ModelSelectionOptions = {
+        category: ModelCategory.IMAGE_EDIT,
+        prioritize: 'quality',
+        prompt: 'Edit the image',
+      };
+      expect((await service.selectModel(options)).selectedModel).toBe(
+        'unpriced-best',
+      );
+      const rerouted = await service.selectModel({
+        ...options,
+        excludedModelKeys: ['unpriced-best'],
+      });
+      expect(rerouted.selectedModel).toBe('priced-basic');
+      expect(rerouted.alternatives.map((row) => row.model)).not.toContain(
+        'unpriced-best',
+      );
+    });
     it('routes an attached end frame only to models that accept one', async () => {
       const videoKeys = Object.values(MODEL_KEYS) as string[];
       const withEndFrame = videoKeys.find((key) => hasEndFrame(key));

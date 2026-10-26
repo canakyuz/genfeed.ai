@@ -56,10 +56,24 @@ export function useStudioSpendQuote(): UseStudioSpendQuoteReturn {
     [],
   );
 
+  // Names the model the price is missing for, so the user can pick another.
   const reportUnavailable = useCallback(
-    (reason: AgentGenerationQuoteUnavailableReason) => {
+    (
+      reason: AgentGenerationQuoteUnavailableReason,
+      model?: { key?: string | null; models: StudioSpendQuoteInput['models'] },
+    ) => {
+      const modelKey = model?.key;
+      const modelLabel = modelKey
+        ? (model.models.find((candidate) => candidate.key === modelKey)
+            ?.label ?? modelKey)
+        : undefined;
       notificationsService.error(
-        translate('unavailable', { reason: translateReason(reason) }),
+        modelLabel
+          ? translate('unavailableForModel', {
+              model: modelLabel,
+              reason: translateReason(reason),
+            })
+          : translate('unavailable', { reason: translateReason(reason) }),
       );
     },
     [notificationsService, translate, translateReason],
@@ -119,6 +133,7 @@ export function useStudioSpendQuote(): UseStudioSpendQuoteReturn {
                 routed.isAvailable
                   ? AgentGenerationQuoteUnavailableReason.MODEL_UNAVAILABLE
                   : readReason(routed),
+                { key: routed.modelKey, models },
               );
               return;
             }
@@ -141,7 +156,10 @@ export function useStudioSpendQuote(): UseStudioSpendQuoteReturn {
             typeof quote.credits !== 'number' ||
             !Number.isFinite(quote.credits)
           ) {
-            reportUnavailable(readReason(quote));
+            reportUnavailable(readReason(quote), {
+              key: quote.modelKey ?? pinnedModelKey ?? modelKey,
+              models,
+            });
             return;
           }
           if (quote.credits > 0) {
