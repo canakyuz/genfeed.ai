@@ -16,11 +16,14 @@ vi.mock('next-intl', async () => {
 });
 const mocks = vi.hoisted(() => ({
   info: vi.fn(),
+  warning: vi.fn(),
   openConfirm: vi.fn(),
   push: vi.fn(),
 }));
 vi.mock('@services/core/notifications.service', () => ({
-  NotificationsService: { getInstance: () => ({ info: mocks.info }) },
+  NotificationsService: {
+    getInstance: () => ({ info: mocks.info, warning: mocks.warning }),
+  },
 }));
 vi.mock(
   '@genfeedai/contexts/providers/global-modals/global-modals.provider',
@@ -104,7 +107,10 @@ function actions(): StoryboardLongFormActions {
       total: 30,
     })),
     renderPresenter: vi.fn(async () => runWith()),
-    assembleLongForm: vi.fn(async () => 'project-9'),
+    assembleLongForm: vi.fn(async () => ({
+      editorProjectId: 'project-9',
+      skippedCutawayIds: [],
+    })),
   };
 }
 
@@ -204,6 +210,34 @@ describe('StoryboardLongFormBoard', () => {
       expect(mocks.push).toHaveBeenCalledWith('/org/brand/editor/project-9'),
     );
     expect(props.actions?.assembleLongForm).toHaveBeenCalledWith('aRoll');
+    expect(mocks.warning).not.toHaveBeenCalled();
+  });
+
+  it('says which cutaways stayed out of the edit', async () => {
+    const props = renderBoard({
+      isApproved: true,
+      run: runWith({
+        aRoll: {
+          presenterId: 'presenter-1',
+          modelKey: 'heygen/avatar-iv',
+          chunks: [chunk('ready')],
+        },
+      }),
+    });
+    const assemble = props.actions?.assembleLongForm;
+    if (!assemble) throw new Error('The board needs its actions.');
+    vi.mocked(assemble).mockResolvedValueOnce({
+      editorProjectId: 'project-9',
+      skippedCutawayIds: ['cutaway-1', 'cutaway-2'],
+    });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open the edit' }),
+    );
+    await waitFor(() =>
+      expect(mocks.warning).toHaveBeenCalledWith(
+        '2 cutaways have no finished footage and stayed out of the edit. The presenter shows there.',
+      ),
+    );
   });
 
   it('keeps the animatic closed while its parts are still speaking', () => {

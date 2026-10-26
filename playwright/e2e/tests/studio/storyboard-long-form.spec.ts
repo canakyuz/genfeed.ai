@@ -134,7 +134,11 @@ test('reviews a long-form script and opens the rendered edit in the Editor', asy
       if (path.endsWith('/long-form/assemble')) {
         assembled = true;
         await route.fulfill({
-          json: { editorProjectId: 'long-form-edit', timeline: {} },
+          json: {
+            editorProjectId: 'long-form-edit',
+            skippedCutawayIds: [],
+            timeline: {},
+          },
         });
         return;
       }

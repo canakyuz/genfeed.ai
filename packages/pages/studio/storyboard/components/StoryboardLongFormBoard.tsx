@@ -125,9 +125,16 @@ export default function StoryboardLongFormBoard({
   function openEdit(track: StoryboardPresenterTrack) {
     if (!actions) return;
     onPerform(async () => {
-      const projectId = await actions.assembleLongForm(track);
+      const { editorProjectId, skippedCutawayIds } =
+        await actions.assembleLongForm(track);
+      if (skippedCutawayIds.length)
+        NotificationsService.getInstance().warning(
+          translate('cutawaysSkipped', { count: skippedCutawayIds.length }),
+        );
       router.push(
-        href(`${APP_ROUTES.STUDIO.EDITOR}/${encodeURIComponent(projectId)}`),
+        href(
+          `${APP_ROUTES.STUDIO.EDITOR}/${encodeURIComponent(editorProjectId)}`,
+        ),
       );
     });
   }

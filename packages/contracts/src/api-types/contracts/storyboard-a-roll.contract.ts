@@ -131,6 +131,8 @@ export type StoryboardPresenterTrack = 'aRoll' | 'animatic';
 /** The Editor project an animatic or a finished long-form edit opened as. */
 export const storyboardLongFormAssemblySchema = z.object({
   editorProjectId: z.string().trim().min(1).max(255),
+  /** Cutaways left out of the edit because their footage failed or never came. */
+  skippedCutawayIds: z.array(z.string().trim().min(1).max(255)).max(600),
 });
 
 export type StoryboardARollPiece = z.infer<typeof storyboardARollPieceSchema>;

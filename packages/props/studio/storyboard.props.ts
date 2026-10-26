@@ -7,6 +7,7 @@ import type { BrandRemixRunSummary } from '@genfeedai/contracts/api-types/contra
 import type { QuoteBrandRemixScenes } from '@genfeedai/contracts/api-types/contracts/brand-remix-scene.contract';
 import type {
   StoryboardARollQuote,
+  StoryboardLongFormAssembly,
   StoryboardPresenterTrack,
 } from '@genfeedai/contracts/api-types/contracts/storyboard-a-roll.contract';
 import type { StoryboardCharacterReplacement } from '@genfeedai/contracts/api-types/contracts/storyboard-character-replace.contract';
@@ -243,10 +244,10 @@ export interface StoryboardLongFormActions {
     track: StoryboardPresenterTrack,
     quote: StoryboardARollQuote,
   ) => Promise<StoryboardRun>;
-  /** Opens the animatic or the finished edit; resolves to the Editor project id. */
+  /** Opens the animatic or the finished edit as an Editor project. */
   readonly assembleLongForm: (
     track: StoryboardPresenterTrack,
-  ) => Promise<string>;
+  ) => Promise<StoryboardLongFormAssembly>;
 }
 
 export interface StoryboardLongFormBoardProps {
