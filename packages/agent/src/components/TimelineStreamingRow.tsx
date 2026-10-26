@@ -6,6 +6,7 @@ import {
   AgentWorkEventType,
 } from '@genfeedai/agent/models/agent-chat.model';
 import type { TimelineStreaming } from '@genfeedai/agent/utils/derive-timeline';
+import { stripKnowledgeCitationMarkers } from '@genfeedai/agent/utils/strip-knowledge-citation-markers';
 import { summarizeStreamingProgress } from '@genfeedai/agent/utils/summarize-streaming-progress';
 import { Clock, Sparkles } from 'lucide-react';
 import { type ReactElement, useMemo } from 'react';
@@ -26,7 +27,10 @@ export function TimelineStreamingRow({
     () => summarizeStreamingProgress(streamState, workEvents),
     [streamState, workEvents],
   );
-  const hasContent = Boolean(streamState.streamingContent);
+  const visibleContent = stripKnowledgeCitationMarkers(
+    streamState.streamingContent,
+  );
+  const hasContent = Boolean(visibleContent);
   const hasReasoning = Boolean(streamState.streamingReasoning);
   const hasToolCalls = streamState.activeToolCalls.length > 0;
   const hasWorkEvents = workEvents.length > 0;
@@ -122,7 +126,7 @@ export function TimelineStreamingRow({
         {hasContent ? (
           <div className="min-w-0 px-0 py-0.5">
             <p className="min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-7 text-foreground">
-              {streamState.streamingContent}
+              {visibleContent}
               {streamState.isStreaming && (
                 <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-foreground align-middle" />
               )}

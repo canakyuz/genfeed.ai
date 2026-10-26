@@ -11,6 +11,7 @@ import type {
   AgentClipperRunIdentity,
   AgentDashboardOperation,
   AgentGenerationActionParams,
+  AgentKnowledgeCitations,
   AgentPublishTargetProposal,
   AgentScopeMetadata,
   AgentThreadUiActionRun,
@@ -50,6 +51,8 @@ export interface AgentChatMessageMetadata {
   reviewRequired?: boolean;
   reasoning?: string;
   memoryEntries?: AgentMemoryEntry[];
+  /** Server-verified Knowledge sources behind the `[n]` markers in the answer. */
+  knowledgeCitations?: AgentKnowledgeCitations;
   attachments?: ChatAttachment[];
   suggestedActions?: SuggestedAction[];
   proposedPlan?: AgentProposedPlan | null;

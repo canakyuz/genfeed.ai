@@ -22,6 +22,7 @@ import {
 import { ButtonVariant } from '@genfeedai/contracts';
 import { cn } from '@helpers/formatting/cn/cn.util';
 import Card from '@ui/card/Card';
+import KnowledgeCitationList from '@ui/knowledge/KnowledgeCitationList';
 import { Button } from '@ui/primitives/button';
 import { SCROLL_FOCUS_SURFACE_CLASS } from '@ui/styles/scroll-focus';
 import Image from 'next/image';
@@ -275,6 +276,11 @@ function AgentChatMessageInner({
                       : AGENT_ASSISTANT_PROSE_CLASS,
                   )}
                 />
+                {!isUser && message.metadata?.knowledgeCitations ? (
+                  <KnowledgeCitationList
+                    citations={message.metadata.knowledgeCitations}
+                  />
+                ) : null}
                 {!isExpanded && shouldTruncateContent && (
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-accent to-transparent" />
                 )}

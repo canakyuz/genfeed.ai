@@ -4,6 +4,7 @@ import type {
   KnowledgeSpace,
 } from '@genfeedai/client/models';
 import type {
+  AgentKnowledgeCitations,
   KnowledgeReceipt,
   KnowledgeSelection,
   KnowledgeSourceCaptureRequest,
@@ -72,4 +73,8 @@ export interface BrandKnowledgeSelection {
 
 export interface KnowledgeReceiptListProps {
   receipts: KnowledgeReceipt[];
+}
+
+export interface KnowledgeCitationListProps {
+  citations: AgentKnowledgeCitations;
 }

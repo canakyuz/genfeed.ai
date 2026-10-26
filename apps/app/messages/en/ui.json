@@ -172,6 +172,8 @@
   },
   "knowledgeReceipts": {
     "title": "Knowledge sources",
+    "citationsTitle": "Sources",
+    "unsupported": "{count, plural, one {# citation could not be verified and was removed.} other {# citations could not be verified and were removed.}}",
     "version": "Version {version}",
     "purpose": {
       "brandTruth": "Brand Truth",
