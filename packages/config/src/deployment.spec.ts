@@ -310,6 +310,16 @@ describe('production deployment', () => {
     ).toBe('self-hosted');
   });
 
+  it('resolves a Vercel app env with only a hosted API endpoint as cloud', () => {
+    expect(
+      resolve(
+        production({
+          NEXT_PUBLIC_API_ENDPOINT: 'https://api.genfeed.ai/v1',
+        }),
+      ),
+    ).toBe('cloud');
+  });
+
   it('is self-hosted with no signal at all', () => {
     expect(resolve(production({}))).toBe('self-hosted');
   });
