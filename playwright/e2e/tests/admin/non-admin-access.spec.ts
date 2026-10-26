@@ -23,9 +23,11 @@ test.describe('Admin access without superadmin', () => {
     });
 
     await expect(authenticatedPage).not.toHaveURL(/\/admin(\/|$)/);
-    await expect(authenticatedPage.getByTestId('app-content-shell')).toBeVisible();
-    await expect(authenticatedPage.getByText('This page wandered off')).toHaveCount(
-      0,
-    );
+    await expect(
+      authenticatedPage.getByTestId('app-content-shell'),
+    ).toBeVisible();
+    await expect(
+      authenticatedPage.getByText('This page wandered off'),
+    ).toHaveCount(0);
   });
 });
