@@ -559,10 +559,7 @@ export class WorkflowExecutionsService extends BaseService<
       organizationId: execution.organizationId ?? organizationId,
       status: error ? 'failed' : 'completed',
     });
-    await this.generationBilling?.closeExecution(
-      executionId,
-      execution.organizationId,
-    );
+    await this.closeGenerationBilling(executionId, execution.organizationId);
 
     const { commit, result } = terminalTransition;
     if (commit) {
@@ -602,6 +599,26 @@ export class WorkflowExecutionsService extends BaseService<
     return document;
   }
 
+  /**
+   * The execution is already terminal when this runs, so a failed close must not
+   * skip the webhook and activity steps after it. The hold stays RESERVED and the
+   * credit reconcile sweep re-runs the idempotent close (#7970).
+   */
+  private async closeGenerationBilling(
+    executionId: string,
+    organizationId: string,
+  ): Promise<void> {
+    try {
+      await this.generationBilling?.closeExecution(executionId, organizationId);
+    } catch (error: unknown) {
+      this.logger.error(
+        'Workflow generation billing close failed; the reconcile sweep will retry',
+        error,
+        { executionId, organizationId },
+      );
+    }
+  }
+
   @HandleErrors('cancel execution', 'workflow-executions')
   async cancelExecution(
     executionId: string,
@@ -636,7 +653,7 @@ export class WorkflowExecutionsService extends BaseService<
       organizationId,
       status: 'cancelled',
     });
-    await this.generationBilling?.closeExecution(executionId, organizationId);
+    await this.closeGenerationBilling(executionId, organizationId);
     const updated = await this.prisma.workflowExecution.findFirst({
       where: scopedWhere(organizationId, { id: executionId }),
     });

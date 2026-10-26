@@ -286,14 +286,18 @@ describe('WorkflowExecutionsService', () => {
     ]);
   });
 
-  it('emits the terminal event even when billing close throws, on complete and cancel', async () => {
+  it('finishes complete and cancel when billing close throws, leaving the hold to the reconcile sweep', async () => {
     const billing = {
       closeExecution: vi.fn().mockRejectedValue(new Error('billing down')),
     };
     const { events, service } = makeService(billing);
 
-    await service.completeExecution('execution-1', 'org-1').catch(() => null);
-    await service.cancelExecution('execution-2', 'org-1').catch(() => null);
+    await expect(
+      service.completeExecution('execution-1', 'org-1'),
+    ).resolves.not.toBeNull();
+    await expect(
+      service.cancelExecution('execution-2', 'org-1'),
+    ).resolves.not.toBeNull();
 
     expect(billing.closeExecution).toHaveBeenCalledTimes(2);
     expect(events.emit.mock.calls.map(([, event]) => event)).toEqual([
