@@ -42,6 +42,20 @@ export const isProtectedBootstrapBypassed = cache(
   },
 );
 
+/**
+ * Isolated Playwright builds only: lets a spec visit `/admin` as a signed-in
+ * visitor who is not a superadmin, since the bypass above otherwise treats
+ * every test session as one. Same trust rule as the bypass: test build AND cookie.
+ */
+export const isPlaywrightAdminDenied = cache(async (): Promise<boolean> => {
+  if (!(await isProtectedBootstrapBypassed())) {
+    return false;
+  }
+
+  const cookieStore = await cookies();
+  return cookieStore.get('__playwright_admin_denied')?.value === 'true';
+});
+
 export const getServerAuthToken = cache(async (): Promise<string> => {
   if (await isProtectedBootstrapBypassed()) {
     return '';
