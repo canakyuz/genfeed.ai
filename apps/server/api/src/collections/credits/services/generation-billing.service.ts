@@ -34,6 +34,7 @@ import {
 import { CreditDeductionQueueService } from '@api/queues/credit-deduction/credit-deduction-queue.service';
 import { MediaGenerationReceiptsService } from '@api/services/media-generation-receipts/media-generation-receipts.service';
 import { PrismaService } from '@api/shared/modules/prisma/prisma.service';
+import { hasOrganizationBilling } from '@genfeedai/config';
 import {
   ActivitySource,
   CreditReservationStatus,
@@ -189,6 +190,11 @@ export class GenerationBillingService {
       organizationId
     ) {
       await this.byok.bindOutput(request, output, organizationId);
+      return;
+    }
+    // Self-hosted reservations are unpersisted stubs (OssCreditsUtilsService),
+    // so there is no quote-group hold to bind and nothing to enforce.
+    if (!hasOrganizationBilling()) {
       return;
     }
     // Only a completion-settled request holds a quote group (see

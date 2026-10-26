@@ -198,7 +198,16 @@ export class ImageGenerationProviderDispatchService {
     }
     let generationPromise: Promise<unknown>;
     try {
-      await this.admitOutput(context, context.ingredientData.id);
+      try {
+        await this.admitOutput(context, context.ingredientData.id);
+      } catch (error: unknown) {
+        // A rejected admission would otherwise leave the placeholder PROCESSING.
+        await this.handleProviderFailure(
+          context,
+          error,
+          'Image output admission',
+        );
+      }
       if (
         context.editing &&
         context.outputs > 1 &&
