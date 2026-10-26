@@ -1,3 +1,4 @@
+import { summarizeMcpApproval } from '@api/collections/mcp-approvals/utils/mcp-approval-summary.util';
 import { PrismaService } from '@api/shared/modules/prisma/prisma.service';
 import { scopedWhere } from '@api/tenancy/scoped-where';
 import { MemberRole } from '@genfeedai/contracts';
@@ -7,16 +8,19 @@ import {
   createLibraryAssetRoute,
   createMessagesConversationRoute,
   createOrganizationAppRoute,
+  createPublishingApprovalsRoute,
 } from '@genfeedai/contracts/constants';
 import {
   BREAKOUT_REMIX_NOTIFICATION_TOPIC,
+  buildReviewInboxItemId,
   getActivityAlertPolicy,
   type INotificationInboxActivity,
   type INotificationInboxItem,
   SOCIAL_REPLY_NOTIFICATION_TOPIC,
   SYSTEM_WORKFLOW_METADATA_KEY,
 } from '@genfeedai/contracts/interfaces';
-import type { Prisma } from '@genfeedai/prisma';
+import { McpApprovalStatus, type Prisma } from '@genfeedai/prisma';
+import { isRecord } from '@genfeedai/utils/data/extract.util';
 import {
   BadRequestException,
   ForbiddenException,
@@ -24,6 +28,10 @@ import {
 } from '@nestjs/common';
 
 const PAGE_LIMIT = 30;
+/** The `NotificationEvent.sourceType` of an MCP tool approval request. */
+const MCP_APPROVAL_SOURCE_TYPE = 'mcp_approval';
+/** Unread approval alerts checked for settlement per inbox read. */
+const SETTLE_APPROVAL_LIMIT = 200;
 
 function parseInboxCursor(
   cursor?: string,
@@ -264,27 +272,17 @@ function breakoutRemixInboxItem<
 }
 
 /**
- * Brand slugs for `social.reply` and breakout-offer rows, limited to brands the
- * member may open.
- * A brand outside that set still lists the item, just without a link.
+ * Slugs for the given brands, limited to brands the member may open.
+ * A brand outside that set is simply missing from the map.
  */
-async function loadInboxBrandSlugs(input: {
+async function loadVisibleBrandSlugs(input: {
+  brandIds: string[];
   member: { brands: Array<{ id: string }>; role: { key: string } };
   organizationId: string;
-  page: Array<{ event: { payload: Prisma.JsonValue }; topic: string }>;
   prisma: PrismaService;
 }): Promise<Map<string, string>> {
-  const { member, organizationId, page, prisma } = input;
-  const brandIds = [
-    ...new Set(
-      page.flatMap((row) => {
-        const payload =
-          readSocialReplyPayload(row.topic, row.event.payload) ??
-          readBreakoutRemixPayload(row.topic, row.event.payload);
-        return payload ? [payload.brandId] : [];
-      }),
-    ),
-  ];
+  const { member, organizationId, prisma } = input;
+  const brandIds = [...new Set(input.brandIds)];
   if (brandIds.length === 0) {
     return new Map();
   }
@@ -306,6 +304,184 @@ async function loadInboxBrandSlugs(input: {
   return new Map(
     brands.flatMap((brand) => (brand.slug ? [[brand.id, brand.slug]] : [])),
   );
+}
+
+/**
+ * Brand slugs for `social.reply` and breakout-offer rows, limited to brands the
+ * member may open.
+ * A brand outside that set still lists the item, just without a link.
+ */
+async function loadInboxBrandSlugs(input: {
+  member: { brands: Array<{ id: string }>; role: { key: string } };
+  organizationId: string;
+  page: Array<{ event: { payload: Prisma.JsonValue }; topic: string }>;
+  prisma: PrismaService;
+}): Promise<Map<string, string>> {
+  const { member, organizationId, page, prisma } = input;
+  const brandIds = page.flatMap((row) => {
+    const payload =
+      readSocialReplyPayload(row.topic, row.event.payload) ??
+      readBreakoutRemixPayload(row.topic, row.event.payload);
+    return payload ? [payload.brandId] : [];
+  });
+  return loadVisibleBrandSlugs({ brandIds, member, organizationId, prisma });
+}
+
+type McpApprovalInboxEntry = {
+  brandId: string | null;
+  /** Slug of the approval's brand, when the member may open that brand. */
+  brandSlug: string | undefined;
+  isPending: boolean;
+  summary: string;
+};
+
+/**
+ * What each MCP approval alert on the page is about: the approval's one-line
+ * summary, whether it still waits on a decision, and the brand it was issued
+ * for. An approval that is gone from the page's map renders as unavailable.
+ */
+async function loadMcpApprovalEntries(input: {
+  member: { brands: Array<{ id: string }>; role: { key: string } };
+  organizationId: string;
+  page: Array<{ event: { sourceId: string; sourceType: string } }>;
+  prisma: PrismaService;
+  userId: string;
+}): Promise<Map<string, McpApprovalInboxEntry>> {
+  const { member, organizationId, page, prisma, userId } = input;
+  const ids = [
+    ...new Set(
+      page
+        .filter((row) => row.event.sourceType === MCP_APPROVAL_SOURCE_TYPE)
+        .map((row) => row.event.sourceId),
+    ),
+  ];
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const approvals = await prisma.mcpApproval.findMany({
+    where: scopedWhere(organizationId, { id: { in: ids }, userId }),
+    select: { arguments: true, id: true, status: true, toolName: true },
+  });
+  const entries = approvals.map((approval) => {
+    const args = isRecord(approval.arguments) ? approval.arguments : {};
+    return {
+      brandId: typeof args.brandId === 'string' ? args.brandId : null,
+      id: approval.id,
+      isPending: approval.status === McpApprovalStatus.PENDING,
+      summary: summarizeMcpApproval(approval.toolName, args).slice(0, 300),
+    };
+  });
+  const brandSlugs = await loadVisibleBrandSlugs({
+    brandIds: entries.flatMap((entry) =>
+      entry.brandId ? [entry.brandId] : [],
+    ),
+    member,
+    organizationId,
+    prisma,
+  });
+  return new Map(
+    entries.map(({ id, ...entry }) => [
+      id,
+      {
+        ...entry,
+        brandSlug: entry.brandId ? brandSlugs.get(entry.brandId) : undefined,
+      },
+    ]),
+  );
+}
+
+/**
+ * The bell row for an MCP approval alert. An approval with a brand opens in
+ * that brand's queue, one without in the organization's; a decided approval or
+ * a brand the member cannot open leaves no link.
+ */
+function mcpApprovalInboxItem<
+  A,
+  R extends {
+    event: { eventKey: string; sourceId: string };
+    id: string;
+    occurredAt: Date;
+    readAt: Date | null;
+    topic: string;
+  },
+>(input: {
+  activity: (A & { value: string | null }) | null;
+  approval: McpApprovalInboxEntry | undefined;
+  orgSlug: string;
+  row: R;
+}) {
+  const { activity, approval, orgSlug, row } = input;
+  const canLink = Boolean(
+    approval?.isPending && (!approval.brandId || approval.brandSlug),
+  );
+  return {
+    id: row.id,
+    topic: row.topic,
+    occurredAt: row.occurredAt,
+    readAt: row.readAt,
+    outcome: readInboxOutcome(row.event.eventKey),
+    severity: getActivityAlertPolicy(row.event.eventKey)?.severity ?? null,
+    activity:
+      activity && approval
+        ? { ...activity, value: approval.summary }
+        : activity,
+    sourceHref: canLink
+      ? inboxSourceHref(
+          orgSlug,
+          approval?.brandSlug,
+          createPublishingApprovalsRoute({
+            approval: buildReviewInboxItemId({
+              approvalId: row.event.sourceId,
+              kind: 'mcp_approval',
+            }),
+          }),
+        )
+      : null,
+    sourceLabel: approval?.summary ?? null,
+    failure: null,
+  };
+}
+
+/** The bell row for a `social.reply` alert; it links to the newest reply. */
+function socialReplyInboxItem<
+  A,
+  R extends {
+    event: { eventKey: string };
+    id: string;
+    occurredAt: Date;
+    readAt: Date | null;
+    topic: string;
+  },
+>(input: {
+  activity: A;
+  brandSlug: string | undefined;
+  orgSlug: string;
+  row: R;
+  socialReply: SocialReplyInboxPayload;
+}) {
+  const { activity, brandSlug, orgSlug, row, socialReply } = input;
+  return {
+    id: row.id,
+    topic: row.topic,
+    occurredAt: row.occurredAt,
+    readAt: row.readAt,
+    outcome: 'completed' as const,
+    severity: getActivityAlertPolicy(row.event.eventKey)?.severity ?? null,
+    activity,
+    sourceHref: brandSlug
+      ? inboxSourceHref(
+          orgSlug,
+          brandSlug,
+          createMessagesConversationRoute(socialReply.newestConversationId),
+        )
+      : null,
+    sourceLabel: null,
+    failure: null,
+    socialReply: {
+      accountHandle: socialReply.accountHandle,
+      replyCount: socialReply.replyCount,
+    },
+  };
 }
 
 @Injectable()
@@ -356,8 +532,64 @@ export class NotificationInboxService {
     return member;
   }
 
+  /**
+   * An approval alert asks for a decision, so once the approval is decided,
+   * superseded or gone the alert has nothing left to ask: mark it read instead
+   * of leaving it unread in the bell.
+   */
+  private async settleResolvedApprovalAlerts(
+    organizationId: string,
+    userId: string,
+  ) {
+    const unread = await this.prisma.notificationInboxItem.findMany({
+      where: scopedWhere(organizationId, {
+        ...this.scope(organizationId, userId),
+        readAt: null,
+        event: {
+          organizationId,
+          isDeleted: false,
+          sourceType: MCP_APPROVAL_SOURCE_TYPE,
+        },
+      }),
+      select: {
+        event: { select: { sourceId: true, sourceType: true } },
+        id: true,
+      },
+      take: SETTLE_APPROVAL_LIMIT,
+    });
+    const candidates = unread.filter(
+      (item) => item.event.sourceType === MCP_APPROVAL_SOURCE_TYPE,
+    );
+    if (candidates.length === 0) {
+      return;
+    }
+    const pending = await this.prisma.mcpApproval.findMany({
+      where: scopedWhere(organizationId, {
+        id: { in: candidates.map((item) => item.event.sourceId) },
+        status: McpApprovalStatus.PENDING,
+      }),
+      select: { id: true },
+    });
+    const pendingIds = new Set(pending.map((approval) => approval.id));
+    const settledIds = candidates
+      .filter((item) => !pendingIds.has(item.event.sourceId))
+      .map((item) => item.id);
+    if (settledIds.length === 0) {
+      return;
+    }
+    await this.prisma.notificationInboxItem.updateMany({
+      where: scopedWhere(organizationId, {
+        ...this.scope(organizationId, userId),
+        readAt: null,
+        id: { in: settledIds },
+      }),
+      data: { readAt: new Date() },
+    });
+  }
+
   async count(organizationId: string, userId: string) {
     await this.member(organizationId, userId);
+    await this.settleResolvedApprovalAlerts(organizationId, userId);
     const unreadCount = await this.prisma.notificationInboxItem.count({
       where: scopedWhere(organizationId, {
         ...this.scope(organizationId, userId),
@@ -389,6 +621,7 @@ export class NotificationInboxService {
 
   async list(organizationId: string, userId: string, cursor?: string) {
     const member = await this.member(organizationId, userId);
+    await this.settleResolvedApprovalAlerts(organizationId, userId);
     const rows = await this.prisma.notificationInboxItem.findMany({
       where: scopedWhere(organizationId, {
         ...this.scope(organizationId, userId),
@@ -434,35 +667,32 @@ export class NotificationInboxService {
       prisma: this.prisma,
     });
 
+    const mcpApprovals = await loadMcpApprovalEntries({
+      member,
+      organizationId,
+      page,
+      prisma: this.prisma,
+      userId,
+    });
+
     const docs = page.map((row) => {
+      if (row.event.sourceType === MCP_APPROVAL_SOURCE_TYPE) {
+        return mcpApprovalInboxItem({
+          activity: readInboxActivity(organizationId, row.activity),
+          approval: mcpApprovals.get(row.event.sourceId),
+          orgSlug: member.organization.slug,
+          row,
+        });
+      }
       const socialReply = readSocialReplyPayload(row.topic, row.event.payload);
       if (socialReply) {
-        const brandSlug = inboxBrandSlugs.get(socialReply.brandId);
-        return {
-          id: row.id,
-          topic: row.topic,
-          occurredAt: row.occurredAt,
-          readAt: row.readAt,
-          outcome: 'completed' as const,
-          severity:
-            getActivityAlertPolicy(row.event.eventKey)?.severity ?? null,
+        return socialReplyInboxItem({
           activity: readInboxActivity(organizationId, row.activity),
-          sourceHref: brandSlug
-            ? inboxSourceHref(
-                member.organization.slug,
-                brandSlug,
-                createMessagesConversationRoute(
-                  socialReply.newestConversationId,
-                ),
-              )
-            : null,
-          sourceLabel: null,
-          failure: null,
-          socialReply: {
-            accountHandle: socialReply.accountHandle,
-            replyCount: socialReply.replyCount,
-          },
-        };
+          brandSlug: inboxBrandSlugs.get(socialReply.brandId),
+          orgSlug: member.organization.slug,
+          row,
+          socialReply,
+        });
       }
       const breakoutRemix = readBreakoutRemixPayload(
         row.topic,
