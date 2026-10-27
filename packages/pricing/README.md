@@ -36,7 +36,7 @@ Depend on it from another workspace package with
 
 ## Tests
 
-From this package directory:
+From the repository root:
 
 ```bash
 cd packages/pricing && bunx vitest run
