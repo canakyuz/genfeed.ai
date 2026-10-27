@@ -34,6 +34,7 @@ import {
   AgentGenerationQuoteUnavailableReason,
   type ModelBillableQuoteSnapshot,
 } from '@genfeedai/contracts/interfaces';
+import { getDefaultVideoResolution } from '@genfeedai/helpers/media/video-resolution/video-resolution.helper';
 import { isAutoStudioModelKey } from '@genfeedai/pricing';
 import type { Model } from '@genfeedai/prisma';
 import { isRecord } from '@genfeedai/utils/data/extract.util';
@@ -74,6 +75,9 @@ const VIDEO_QUOTE_STAND_INS: Readonly<
     references: ['https://quote.invalid/start-image.png'],
   },
 };
+
+/** Models Auto may skip as unpriceable before it reports the price unavailable. */
+const MAX_AUTO_PRICING_ATTEMPTS = 8;
 
 function unavailableQuote(
   unavailableReason: AgentGenerationQuoteUnavailableReason,
@@ -160,8 +164,46 @@ export class AgentGenerationEstimateService {
         AgentGenerationQuoteUnavailableReason.INSUFFICIENT_INPUT,
       );
     }
+    const isAuto = !input.modelKey && !isEdit && input.category !== 'music';
+    const unpriced: string[] = [];
+    // Auto must land on a model that quotes: one the router ranks first but
+    // the exact tariff cannot price is skipped for the next, never reported
+    // as the answer while a priced model exists.
+    for (let attempt = 0; attempt < MAX_AUTO_PRICING_ATTEMPTS; attempt += 1) {
+      let modelKey: string;
+      try {
+        modelKey = await this.resolveModelKey(input, category, unpriced);
+      } catch (error: unknown) {
+        if (unpriced.length > 0) break;
+        return this.unavailableFromError(error, input);
+      }
+      // A router that ignores the exclusion would only price the same row again.
+      if (unpriced.includes(modelKey)) break;
+      const quote = await this.estimateModel(input, category, modelKey);
+      if (
+        !isAuto ||
+        quote.isAvailable ||
+        quote.unavailableReason !==
+          AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED
+      ) {
+        return quote;
+      }
+      unpriced.push(modelKey);
+    }
+    // Every candidate Auto tried was unpriceable: name the first, the one the
+    // user would have been sent to.
+    return unavailableQuote(
+      AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED,
+      unpriced[0],
+    );
+  }
+
+  private async estimateModel(
+    input: AgentGenerationQuoteInput,
+    category: ModelCategory,
+    modelKey: string,
+  ): Promise<PreparedAgentGenerationQuote> {
     try {
-      const modelKey = await this.resolveModelKey(input, category);
       const model = await this.loadAvailableModel(modelKey, category, input);
       if (!model) {
         return unavailableQuote(
@@ -169,10 +211,41 @@ export class AgentGenerationEstimateService {
           modelKey.startsWith('crun/') ? modelKey : null,
         );
       }
-      return await this.quoteModel(input, modelKey, model);
+      return await this.quoteModelWithAutoVideoDefaults(input, modelKey, model);
     } catch (error: unknown) {
-      return this.unavailableFromError(error, input);
+      return this.unavailableFromError(error, input, modelKey);
     }
+  }
+
+  /**
+   * An Auto video quote carries no resolution or audio, yet the model Auto
+   * picks may need both to be priced. When it cannot be priced as asked, retry
+   * with what Studio submits for a named model (default resolution, no audio).
+   * A named model is never changed, and a model that prices as asked is not.
+   */
+  private async quoteModelWithAutoVideoDefaults(
+    input: AgentGenerationQuoteInput,
+    modelKey: string,
+    model: VideoEstimateModel,
+  ): Promise<PreparedAgentGenerationQuote> {
+    const isAutoVideo = input.category === 'video' && !input.modelKey;
+    if (!isAutoVideo) return this.quoteModel(input, modelKey, model);
+    const asked = await this.quoteModel(input, modelKey, model).catch(
+      (error: unknown) => {
+        if (!isPricingUnresolved(error)) throw error;
+        return undefined;
+      },
+    );
+    if (asked?.isAvailable) return asked;
+    return this.quoteModel(
+      {
+        ...input,
+        isAudioEnabled: input.isAudioEnabled ?? false,
+        resolution: input.resolution ?? getDefaultVideoResolution(modelKey),
+      },
+      modelKey,
+      model,
+    );
   }
 
   private resolveCategory(input: AgentGenerationQuoteInput): ModelCategory {
@@ -186,6 +259,7 @@ export class AgentGenerationEstimateService {
   private async resolveModelKey(
     input: AgentGenerationQuoteInput,
     category: ModelCategory,
+    excludedModelKeys: readonly string[] = [],
   ): Promise<string> {
     if (input.category === 'music' && isAutoStudioModelKey(input.modelKey)) {
       return (
@@ -208,6 +282,7 @@ export class AgentGenerationEstimateService {
       await this.routerService.selectModel({
         category,
         duration: input.duration,
+        excludedModelKeys,
         organizationId: input.organizationId,
         outputs: input.outputs,
         prioritize: input.prioritize,
@@ -311,6 +386,7 @@ export class AgentGenerationEstimateService {
       ? { credits, isAvailable: true, modelKey, snapshot: quote }
       : unavailableQuote(
           AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED,
+          modelKey,
         );
   }
 
@@ -359,6 +435,7 @@ export class AgentGenerationEstimateService {
       ? { credits, isAvailable: true, modelKey, snapshot: quote }
       : unavailableQuote(
           AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED,
+          modelKey,
         );
   }
 
@@ -460,15 +537,18 @@ export class AgentGenerationEstimateService {
   private unavailableFromError(
     error: unknown,
     input: AgentGenerationQuoteInput,
+    modelKey: string | null = null,
   ): AgentGenerationQuote {
     if (isPricingUnresolved(error)) {
       this.logger.warn('Generation credit estimate has no exact tariff', {
         category: input.category,
         error: error instanceof Error ? error.message : String(error),
+        modelKey,
         organizationId: input.organizationId,
       });
       return unavailableQuote(
         AgentGenerationQuoteUnavailableReason.PRICING_UNRESOLVED,
+        modelKey,
       );
     }
     this.logger.error('Generation credit estimate failed', error, {

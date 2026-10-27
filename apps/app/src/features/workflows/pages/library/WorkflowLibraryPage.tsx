@@ -15,6 +15,8 @@ import CollectionSection from '@ui/collection/CollectionSection';
 import CollectionView from '@ui/collection/CollectionView';
 import CollectionViewToggle from '@ui/collection/CollectionViewToggle';
 import Container from '@ui/layout/container/Container';
+import SelectionToolbar from '@ui/lists/selection-toolbar/SelectionToolbar';
+import PaginationStepper from '@ui/navigation/pagination/PaginationStepper';
 import { Button } from '@ui/primitives/button';
 import FormSearchbar from '@ui/primitives/searchbar';
 import Spinner from '@ui/primitives/spinner';
@@ -279,31 +281,24 @@ export default function WorkflowLibraryPage() {
   return (
     <Container {...libraryChrome}>
       <div className="flex flex-col gap-8">
-        {selectedIds.size > 0 ? (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-2">
-            <span className="text-sm text-foreground">
-              {translate('library.selectedCount', { count: selectedIds.size })}
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={ButtonVariant.SECONDARY}
-                onClick={() => {
-                  void handleDisableSelected();
-                }}
-              >
-                <Pause className="size-4" />
-                {translate('library.disableSelected')}
-              </Button>
-              <Button
-                variant={ButtonVariant.UNSTYLED}
-                onClick={clearSelection}
-                className="text-sm text-foreground/70 hover:text-foreground"
-              >
-                {translate('library.clearSelection')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
+        <SelectionToolbar
+          count={selectedIds.size}
+          label={translate('library.selectedCount', {
+            count: selectedIds.size,
+          })}
+          clearLabel={translate('library.clearSelection')}
+          onClear={clearSelection}
+        >
+          <Button
+            variant={ButtonVariant.SECONDARY}
+            onClick={() => {
+              void handleDisableSelected();
+            }}
+          >
+            <Pause className="size-4" />
+            {translate('library.disableSelected')}
+          </Button>
+        </SelectionToolbar>
 
         {[
           {
@@ -410,30 +405,20 @@ export default function WorkflowLibraryPage() {
         ) : null}
 
         {pagination.pages > 1 ? (
-          <div className="flex items-center justify-between">
-            <Button
-              variant={ButtonVariant.SECONDARY}
-              disabled={pagination.page <= 1}
-              onClick={() => setPage(Math.max(1, pagination.page - 1))}
-            >
-              {translate('library.previous')}
-            </Button>
-            <span className="text-sm text-muted-foreground">
-              {translate('library.pageStatus', {
-                page: pagination.page,
-                pages: pagination.pages,
-              })}
-            </span>
-            <Button
-              variant={ButtonVariant.SECONDARY}
-              disabled={pagination.page >= pagination.pages}
-              onClick={() =>
-                setPage(Math.min(pagination.pages, pagination.page + 1))
-              }
-            >
-              {translate('library.next')}
-            </Button>
-          </div>
+          <PaginationStepper
+            hasNext={pagination.page < pagination.pages}
+            hasPrevious={pagination.page > 1}
+            nextLabel={translate('library.next')}
+            onNext={() =>
+              setPage(Math.min(pagination.pages, pagination.page + 1))
+            }
+            onPrevious={() => setPage(Math.max(1, pagination.page - 1))}
+            previousLabel={translate('library.previous')}
+            status={translate('library.pageStatus', {
+              page: pagination.page,
+              pages: pagination.pages,
+            })}
+          />
         ) : null}
       </div>
 

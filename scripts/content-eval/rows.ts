@@ -12,6 +12,7 @@ export const SUITE_NAMES = [
   'judge',
   'ladder',
   'harness-ab',
+  'product-ab',
   'media-ladder',
 ] as const;
 export type SuiteName = (typeof SUITE_NAMES)[number];
@@ -58,6 +59,10 @@ export const fixtureInputSchema = z.object({
     bannedPhrases: [],
     isCtaRequired: false,
   }),
+  /** Reply kinds: the inbound message the product's reply route answers. */
+  comment: z
+    .object({ author: z.string().min(1), text: z.string().min(1) })
+    .optional(),
   /** Judge suite: the already-produced text being scored. */
   output: z.string().min(1).optional(),
   platform: z.string().min(1).optional(),
@@ -89,7 +94,7 @@ export type FixtureRow = z.infer<typeof fixtureRowSchema>;
 
 export const contestantProvenanceSchema = z.object({
   family: z.string().min(1),
-  guidanceArm: z.enum(['raw', 'brief']),
+  guidanceArm: z.enum(['raw', 'brief', 'product']),
   id: z.string().min(1),
   isCompiled: z.boolean(),
   model: z.string().min(1),
@@ -149,6 +154,13 @@ export const scoredRowSchema = z.object({
   isAccepted: z.boolean().nullable(),
   latencyMs: z.number().nonnegative(),
   output: z.string().nullable(),
+  /**
+   * Accept verdict from a second grading of the same output (#5600); absent
+   * when the output was not part of the grade-twice sample.
+   */
+  regradedIsAccepted: z.boolean().nullable().optional(),
+  /** Which repeat of the case this answer is; absent means the first. */
+  repeatIndex: z.number().int().nonnegative().optional(),
   rubricVersion: z.string().min(1),
   runId: z.string().min(1),
   suite: z.enum(SUITE_NAMES),
@@ -166,6 +178,8 @@ export const pairwiseResultSchema = z.object({
   isPositionBiased: z.boolean().nullable(),
   orderedChoice: z.enum(PAIRWISE_CHOICES).nullable(),
   pointwiseChoice: z.enum(PAIRWISE_CHOICES).nullable(),
+  /** Which repeat of the case this comparison is; absent means the first. */
+  repeatIndex: z.number().int().nonnegative().optional(),
   /** a = challenger wins, b = baseline wins; null when voided. */
   verdict: z.enum(PAIRWISE_CHOICES).nullable(),
   voidReason: z.string().nullable(),

@@ -180,6 +180,12 @@ function setup(initial: StoryboardNativeRunConfig = draftConfig()) {
   const credits = {
     settleReservation: vi.fn(async () => ({})),
     releaseReservation: vi.fn(async () => ({})),
+    findReservationForWorkload: vi.fn(
+      async (_query: {
+        workloadId: string;
+        workloadType: string;
+      }): Promise<{ id: string } | null> => null,
+    ),
   };
   const source = { validatePlanAssets: vi.fn(async () => undefined) };
   const logger = { warn: vi.fn(), error: vi.fn() };
@@ -530,6 +536,59 @@ describe('StoryboardStillsService reconcile', () => {
     ]);
   });
 
+  it('finds and releases the hold of a failed still whose journal never recorded it (#7500)', async () => {
+    const context = setup();
+    await quoteAndGenerate(context, ['shot-1']);
+    context.edit((config) => {
+      const stored = config as StoryboardNativeRunConfig & {
+        stillOperations: Array<Record<string, unknown>>;
+      };
+      const [operation] = stored.stillOperations;
+      delete operation.reservationId;
+      operation.billing = 'none';
+    });
+    context.credits.findReservationForWorkload.mockImplementation(
+      async ({ workloadId, workloadType }) =>
+        workloadId.endsWith(
+          context.current().stillOperations?.[0].operationId ?? '',
+        ) && workloadType === 'media-generation-group'
+          ? { id: 'res-unjournaled' }
+          : null,
+    );
+    context.ingredients.set('asset-1', { status: 'FAILED' });
+
+    await context.service.reconcile('org-1', 'brand-1', 'run-1');
+
+    expect(context.credits.releaseReservation).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      reservationId: 'res-unjournaled',
+    });
+    expect(context.current().stillOperations).toEqual([
+      expect.objectContaining({ billing: 'released', state: 'failed' }),
+    ]);
+  });
+
+  it('reports no hold released for a failed still that never had one', async () => {
+    const context = setup();
+    await quoteAndGenerate(context, ['shot-1']);
+    context.edit((config) => {
+      const stored = config as StoryboardNativeRunConfig & {
+        stillOperations: Array<Record<string, unknown>>;
+      };
+      const [operation] = stored.stillOperations;
+      delete operation.reservationId;
+      operation.billing = 'none';
+    });
+    context.ingredients.set('asset-1', { status: 'FAILED' });
+
+    await context.service.reconcile('org-1', 'brand-1', 'run-1');
+
+    expect(context.credits.releaseReservation).not.toHaveBeenCalled();
+    expect(context.current().stillOperations).toEqual([
+      expect.objectContaining({ billing: 'none', state: 'failed' }),
+    ]);
+  });
+
   it('attaches a still as stale when the action changed while it rendered', async () => {
     const context = setup();
     await quoteAndGenerate(context, ['shot-1']);
@@ -729,6 +788,19 @@ describe('StoryboardStillsService long-form cutaways', () => {
         .current()
         .plan.longForm?.segments[0]?.cutaways.map((cutaway) => cutaway.assetId),
     ).toEqual(['asset-1', 'existing-footage']);
+  });
+
+  it('prices every cutaway still without footage for the whole-video estimate', async () => {
+    const config = longFormConfig();
+    const context = setup(config);
+
+    const estimate = await context.service.estimateCutaways(
+      'org-1',
+      storyboardStoredRunConfigSchema.parse(config),
+    );
+
+    expect(estimate).toEqual({ parts: 1, credits: 4, billingMode: 'platform' });
+    expect(context.images.generateImage).not.toHaveBeenCalled();
   });
 
   it('leaves the slot empty when the brief changed while it rendered', async () => {

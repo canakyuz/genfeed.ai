@@ -17,6 +17,7 @@ import {
   resolveConversationComposerDestinationHref,
   useAgentChatStore,
 } from '@genfeedai/agent';
+import { useResetAgentOnOrganizationChange } from '@genfeedai/agent/hooks/use-reset-agent-on-organization-change';
 import {
   attachContentToConversationDraft,
   buildConversationComposerDraftScopeKey,
@@ -176,6 +177,7 @@ function UniversalWorkspaceShellContent({
   const searchParamsString = searchParams.toString();
   const { back, push, replace } = useRouter();
   const { brandId, brands, organizationId, selectedBrand } = useBrand();
+  useResetAgentOnOrganizationChange(organizationId);
   const { activeHref, brandSlug, href, orgHref, orgSlug } = useOrgUrl();
   const activeThreadId = useAgentChatStore((state) => state.activeThreadId);
   const activeSurfaceAdapter = useActiveAnalyticsWorkspaceSurfaceAdapter();
@@ -729,9 +731,11 @@ function UniversalWorkspaceShellContent({
 
   // The topbar's Chat and Context toggles drive this panel through the dock.
   const registerAgentDockPanel = agentDock?.registerPanel;
+  // Below `xl` the rail does not render, so a context left open at a wider
+  // size is not visible: only the sheet (dock or mobile context) is.
   const isPanelVisible =
     (isAgentDockHost && isAgentDockOpen) ||
-    isInspectorOpen ||
+    (isInspectorOpen && !isCompactViewport) ||
     isMobileContextOpen;
   const hasContextView = isAgentDockHost || Boolean(activeContextSidebar);
   const panelControls = useMemo<WorkspacePanelControls>(

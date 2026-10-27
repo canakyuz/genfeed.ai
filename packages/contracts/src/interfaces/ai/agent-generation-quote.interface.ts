@@ -59,7 +59,11 @@ export interface AgentGenerationQuote {
   /** `null` when unavailable; generation requires an available finite quote. */
   credits: number | null;
   isAvailable: boolean;
-  /** Concrete validated model; unavailable quotes never disclose a key. */
+  /**
+   * Concrete validated model. An unavailable quote names it only when the
+   * organization's own enabled model has no confirmed price, so the caller can
+   * say which model to change; it never discloses any other key.
+   */
   modelKey: string | null;
   /**
    * One fixed sentence naming the setting that blocked the quote, written by

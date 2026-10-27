@@ -40,6 +40,8 @@ import {
 } from '@genfeedai/contracts/api-types/contracts/storyboard-still.contract';
 import {
   DRAFT_GENERATION_CONFIG,
+  GENERATION_POOL_WORKLOAD_TYPE,
+  MEDIA_GENERATION_GROUP_WORKLOAD_TYPE,
   resolveAgentGenerationDimensions,
 } from '@genfeedai/contracts/constants';
 import { LoggerService } from '@libs/logger/logger.service';
@@ -56,6 +58,11 @@ type StillOutcome = Pick<
   StillOperation,
   'state' | 'billing' | 'assetId' | 'errorCode'
 >;
+
+/** The identity the image pipeline keys a still's credit hold by. */
+function stillSourceActionId(runId: string, operation: StillOperation) {
+  return `${STORYBOARD_STILL_SOURCE_ACTION_PREFIX}${runId}-${operation.operationId}`;
+}
 
 function parseInput<T>(schema: ZodType<T>, value: unknown): T {
   const parsed = schema.safeParse(value);
@@ -214,7 +221,12 @@ export class StoryboardStillsService {
     const live = (config.stillOperations ?? []).filter(isLiveStillOperation);
     const outcomes = new Map<string, StillOutcome>();
     for (const operation of live) {
-      const outcome = await this.observe(organizationId, brandId, operation);
+      const outcome = await this.observe(
+        organizationId,
+        brandId,
+        runId,
+        operation,
+      );
       if (outcome) outcomes.set(operation.operationId, outcome);
     }
     if (!outcomes.size) return projectStoryboardRun(record);
@@ -222,6 +234,36 @@ export class StoryboardStillsService {
       this.applyOutcomes(current, outcomes),
     );
     return next;
+  }
+
+  /**
+   * Prices a still for every cutaway still without footage, for the
+   * whole-video estimate (#8221). Every still costs the same.
+   */
+  async estimateCutaways(
+    organizationId: string,
+    config: StoryboardStoredRunConfig,
+  ): Promise<{
+    parts: number;
+    credits: number;
+    billingMode?: StoryboardStillQuote['billingMode'];
+  }> {
+    const live = new Set(
+      (config.stillOperations ?? [])
+        .filter(isLiveStillOperation)
+        .map((op) => op.shotId),
+    );
+    const missing = (config.plan.longForm?.segments ?? [])
+      .flatMap((segment) => segment.cutaways)
+      .filter((cutaway) => !cutaway.assetId && !live.has(cutaway.id));
+    const first = missing[0];
+    if (!first) return { parts: 0, credits: 0 };
+    const quote = await this.priceStills(organizationId, config, [first.id]);
+    return {
+      parts: missing.length,
+      credits: quote.total * missing.length,
+      billingMode: quote.billingMode,
+    };
   }
 
   private async buildQuote(
@@ -382,7 +424,7 @@ export class StoryboardStillsService {
     runId: string,
     operation: StillOperation,
   ): Promise<void> {
-    const sourceActionId = `${STORYBOARD_STILL_SOURCE_ACTION_PREFIX}${runId}-${operation.operationId}`;
+    const sourceActionId = stillSourceActionId(runId, operation);
     const user: AuthenticatedUser = {
       id: operation.actorUserId,
       userId: operation.actorUserId,
@@ -577,17 +619,22 @@ export class StoryboardStillsService {
   private async observe(
     organizationId: string,
     brandId: string,
+    runId: string,
     operation: StillOperation,
   ): Promise<StillOutcome | undefined> {
     const isAbandoned =
       Date.now() - Date.parse(operation.updatedAt) > STILL_ABANDONED_MS;
     if (!operation.assetId) {
       if (!isAbandoned) return undefined;
-      await this.releaseHeld(organizationId, operation);
+      const isReleased = await this.releaseHeld(
+        organizationId,
+        runId,
+        operation,
+      );
       this.reportFailedStill(operation, 'STORYBOARD_STILL_NOT_DISPATCHED');
       return {
         state: 'failed',
-        billing: operation.reservationId ? 'released' : 'none',
+        billing: isReleased ? 'released' : 'none',
         errorCode: 'STORYBOARD_STILL_NOT_DISPATCHED',
       };
     }
@@ -613,7 +660,7 @@ export class StoryboardStillsService {
     if (status !== 'FAILED' && !isUndispatched) return undefined;
     if (isUndispatched)
       await this.failPlaceholder(organizationId, brandId, operation.assetId);
-    await this.releaseHeld(organizationId, operation);
+    const isReleased = await this.releaseHeld(organizationId, runId, operation);
     this.reportFailedStill(
       operation,
       'STORYBOARD_STILL_GENERATION_FAILED',
@@ -621,7 +668,7 @@ export class StoryboardStillsService {
     );
     return {
       state: 'failed',
-      billing: operation.reservationId ? 'released' : 'none',
+      billing: isReleased ? 'released' : 'none',
       errorCode: 'STORYBOARD_STILL_GENERATION_FAILED',
     };
   }
@@ -719,9 +766,43 @@ export class StoryboardStillsService {
     }
   }
 
-  private async releaseHeld(organizationId: string, operation: StillOperation) {
-    if (operation.reservationId)
-      await this.release(organizationId, operation.reservationId);
+  /**
+   * Releases the still's hold and says whether it had one. The journal records
+   * the hold id after the image pipeline reserves it, so a still whose journal
+   * write never landed is found by the identity the pipeline keyed the hold by;
+   * otherwise its credits would stay held while the shot reads "not charged".
+   */
+  private async releaseHeld(
+    organizationId: string,
+    runId: string,
+    operation: StillOperation,
+  ): Promise<boolean> {
+    const reservationId =
+      operation.reservationId ??
+      (await this.findUnjournaledHold(organizationId, runId, operation));
+    if (!reservationId) return false;
+    await this.release(organizationId, reservationId);
+    return true;
+  }
+
+  private async findUnjournaledHold(
+    organizationId: string,
+    runId: string,
+    operation: StillOperation,
+  ): Promise<string | undefined> {
+    if (operation.credits <= 0 || operation.billingMode === 'byok') return;
+    const workloadId = stillSourceActionId(runId, operation);
+    for (const workloadType of [
+      MEDIA_GENERATION_GROUP_WORKLOAD_TYPE,
+      GENERATION_POOL_WORKLOAD_TYPE,
+    ]) {
+      const hold = await this.credits.findReservationForWorkload({
+        organizationId,
+        workloadId,
+        workloadType,
+      });
+      if (hold) return hold.id;
+    }
   }
 
   /** Release is a no-op for a hold that is no longer reserved. */

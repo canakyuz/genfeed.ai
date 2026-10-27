@@ -6,8 +6,13 @@ import { ButtonSize, ButtonVariant, CardVariant } from '@genfeedai/contracts';
 import type {
   StoryboardARollChunk,
   StoryboardARollQuote,
+  StoryboardLongFormEstimate,
   StoryboardPresenterTrack,
 } from '@genfeedai/contracts/api-types/contracts/storyboard-a-roll.contract';
+import {
+  STORYBOARD_TRANSLATION_LANGUAGES,
+  type StoryboardTranslationLanguage,
+} from '@genfeedai/contracts/api-types/contracts/storyboard-run.contract';
 import type { StoryboardStillQuote } from '@genfeedai/contracts/api-types/contracts/storyboard-still.contract';
 import { APP_ROUTES } from '@genfeedai/contracts/constants';
 import type { StoryboardLongFormBoardProps } from '@genfeedai/props/studio/storyboard.props';
@@ -19,9 +24,11 @@ import GenerationStatus from '@ui/feedback/generation-status/GenerationStatus';
 import { Button } from '@ui/primitives/button';
 import { EditableText } from '@ui/primitives/editable-text';
 import Field from '@ui/primitives/field';
+import { SelectField } from '@ui/primitives/select';
 import { Textarea } from '@ui/primitives/textarea';
 import { useRouter } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { useEffect, useMemo, useState } from 'react';
 
 interface TrackProgress {
   total: number;
@@ -61,6 +68,14 @@ export default function StoryboardLongFormBoard({
   actions,
 }: StoryboardLongFormBoardProps) {
   const translate = useTranslations('pages.studioStoryboard.longForm');
+  const locale = useLocale();
+  const languageNames = useMemo(
+    () => new Intl.DisplayNames([locale], { type: 'language' }),
+    [locale],
+  );
+  const [language, setLanguage] = useState<StoryboardTranslationLanguage>(
+    STORYBOARD_TRANSLATION_LANGUAGES[1],
+  );
   const { openConfirm } = useConfirmModal();
   const { href } = useOrgUrl();
   const router = useRouter();
@@ -69,6 +84,28 @@ export default function StoryboardLongFormBoard({
   const animatic = trackProgress(run.config.animatic?.chunks);
   const presenter = trackProgress(run.config.aRoll?.chunks);
   const isBusy = isDisabled || !actions;
+  const estimateLongForm = actions?.estimateLongForm;
+  const revision = run.config.revision;
+  const [estimate, setEstimate] = useState<StoryboardLongFormEstimate>();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-price whenever the script or a finished part changes what is left; part renders do not bump the revision.
+  useEffect(() => {
+    if (!estimateLongForm) return;
+    const controller = new AbortController();
+    estimateLongForm(revision, controller.signal)
+      .then((next) => {
+        if (!controller.signal.aborted) setEstimate(next);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setEstimate(undefined);
+      });
+    return () => controller.abort();
+  }, [
+    estimateLongForm,
+    revision,
+    missingCutaways.length,
+    animatic.ready,
+    presenter.ready,
+  ]);
 
   function price(quote: StoryboardStillQuote | StoryboardARollQuote) {
     return quote.billingMode === 'byok'
@@ -122,12 +159,33 @@ export default function StoryboardLongFormBoard({
       });
     });
   }
+  function makeTranslation() {
+    if (!actions) return;
+    onPerform(async (revision) => {
+      const copy = await actions.translateLongForm(revision, language);
+      NotificationsService.getInstance().success(
+        translate('translateDone', {
+          language: languageNames.of(language) ?? language,
+        }),
+      );
+      router.push(
+        href(`${APP_ROUTES.STUDIO.STORYBOARD}/${encodeURIComponent(copy.id)}`),
+      );
+    });
+  }
   function openEdit(track: StoryboardPresenterTrack) {
     if (!actions) return;
     onPerform(async () => {
-      const projectId = await actions.assembleLongForm(track);
+      const { editorProjectId, skippedCutawayIds } =
+        await actions.assembleLongForm(track);
+      if (skippedCutawayIds.length)
+        NotificationsService.getInstance().warning(
+          translate('cutawaysSkipped', { count: skippedCutawayIds.length }),
+        );
       router.push(
-        href(`${APP_ROUTES.STUDIO.EDITOR}/${encodeURIComponent(projectId)}`),
+        href(
+          `${APP_ROUTES.STUDIO.EDITOR}/${encodeURIComponent(editorProjectId)}`,
+        ),
       );
     });
   }
@@ -139,6 +197,16 @@ export default function StoryboardLongFormBoard({
         <h2 className="text-sm font-semibold">
           {translate('productionTitle')}
         </h2>
+        {estimate ? (
+          <p className="text-sm text-muted-foreground">
+            {estimate.billingMode === 'byok'
+              ? translate('estimateByok')
+              : translate('estimateCredits', {
+                  credits: estimate.totalCredits,
+                })}
+            {estimate.presenter.problem ? ` ${estimate.presenter.problem}` : ''}
+          </p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-3">
           <section
             aria-label={translate('brollTitle')}
@@ -256,6 +324,43 @@ export default function StoryboardLongFormBoard({
             </div>
           </section>
         </div>
+        <section
+          aria-label={translate('translateTitle')}
+          className="flex flex-col gap-2 rounded-md border border-border p-3"
+        >
+          <p className="text-sm font-medium">{translate('translateTitle')}</p>
+          <p className="text-xs text-muted-foreground">
+            {translate('translateHint')}
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <SelectField
+              name="storyboard-translation-language"
+              label={translate('translateLanguage')}
+              value={language}
+              isDisabled={isBusy}
+              isFullWidth={false}
+              onChange={(event) => {
+                const next = STORYBOARD_TRANSLATION_LANGUAGES.find(
+                  (code) => code === event.target.value,
+                );
+                if (next) setLanguage(next);
+              }}
+            >
+              {STORYBOARD_TRANSLATION_LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {languageNames.of(code) ?? code}
+                </option>
+              ))}
+            </SelectField>
+            <Button
+              label={translate('translateStart')}
+              size={ButtonSize.SM}
+              variant={ButtonVariant.SECONDARY}
+              disabled={isBusy || segments.length === 0}
+              onClick={makeTranslation}
+            />
+          </div>
+        </section>
       </Card>
       {segments.map((segment) => {
         const start = elapsed;

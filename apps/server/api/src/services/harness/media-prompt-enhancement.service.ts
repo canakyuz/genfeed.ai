@@ -91,6 +91,39 @@ function brandOfferingCorpus(
     .join('\n');
 }
 
+/**
+ * Provider and database errors can echo the prompt or brand guidance in their
+ * message, so only the error class, a numeric HTTP status and a shouty error
+ * code (`ECONNRESET`, `P2028`) are logged, never the message text.
+ */
+function describeEnhancementError(error: unknown): {
+  errorCode?: string;
+  errorName: string;
+  errorStatus?: number;
+} {
+  if (!(error instanceof Error)) return { errorName: 'NonError' };
+  const { code, status, statusCode } = error as unknown as Record<
+    string,
+    unknown
+  >;
+  const httpStatus = [status, statusCode].find(
+    (value): value is number =>
+      typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= 100 &&
+      value <= 599,
+  );
+  return {
+    ...(typeof code === 'string' && /^[A-Z0-9_]{1,40}$/.test(code)
+      ? { errorCode: code }
+      : {}),
+    errorName: /^\w{1,64}$/.test(error.constructor.name)
+      ? error.constructor.name
+      : 'Error',
+    ...(httpStatus === undefined ? {} : { errorStatus: httpStatus }),
+  };
+}
+
 function hasKnowledgeSelection(
   selection: KnowledgeSelection | undefined,
 ): selection is KnowledgeSelection {
@@ -232,7 +265,7 @@ export class MediaPromptEnhancementService {
           .resolveModel()
           .catch(() => 'unresolved'),
         stage,
-        error: error instanceof Error ? error.message : String(error),
+        ...describeEnhancementError(error),
         // Which integrity check failed (a reason code and a schema path, never
         // brand content), so the next failure of this kind is diagnosable.
         ...(error instanceof BrandIdentityIntegrityError

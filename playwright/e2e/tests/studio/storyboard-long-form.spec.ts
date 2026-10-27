@@ -4,6 +4,7 @@ import {
   IngredientFormat,
 } from '@genfeedai/contracts';
 import type { StoryboardRun } from '@genfeedai/contracts/api-types/contracts/storyboard-run.contract';
+import type { Page } from '@playwright/test';
 import { expect, test } from '../../fixtures/auth.fixture';
 import { assertNoErrorBoundaryFallback } from '../../utils/route-assertions';
 
@@ -104,13 +105,13 @@ const run: StoryboardRun = {
   },
 };
 
-test('reviews a long-form script and opens the rendered edit in the Editor', async ({
-  authenticatedPage: page,
-}) => {
-  test.setTimeout(120_000);
-  const pageErrors: string[] = [];
-  page.on('pageerror', (error) => pageErrors.push(error.message));
-  let assembled = false;
+interface LongFormRouteState {
+  assembled: boolean;
+  translatedTo?: string;
+}
+
+/** Serves the long-form run and its read-only and assembly endpoints. */
+async function routeLongFormRun(page: Page, state: LongFormRouteState) {
   await page.route(
     '**/brands/brand-1/storyboard-runs/long-form-run**',
     async (route) => {
@@ -131,10 +132,38 @@ test('reviews a long-form script and opens the rendered edit in the Editor', asy
         });
         return;
       }
-      if (path.endsWith('/long-form/assemble')) {
-        assembled = true;
+      if (path.endsWith('/long-form/estimate')) {
+        const free = { parts: 0, credits: 0 };
         await route.fulfill({
-          json: { editorProjectId: 'long-form-edit', timeline: {} },
+          json: {
+            revision: run.config.revision,
+            billingMode: 'platform',
+            cutaways: { parts: 1, credits: 4 },
+            animatic: free,
+            presenter: free,
+            totalCredits: 4,
+          },
+        });
+        return;
+      }
+      if (path.endsWith('/long-form/translations')) {
+        state.translatedTo = route.request().postDataJSON()?.language;
+        const { id: _id, ...attributes } = run;
+        await route.fulfill({
+          json: {
+            data: { id: 'long-form-run-es', type: 'content-run', attributes },
+          },
+        });
+        return;
+      }
+      if (path.endsWith('/long-form/assemble')) {
+        state.assembled = true;
+        await route.fulfill({
+          json: {
+            editorProjectId: 'long-form-edit',
+            skippedCutawayIds: [],
+            timeline: {},
+          },
         });
         return;
       }
@@ -146,6 +175,16 @@ test('reviews a long-form script and opens the rendered edit in the Editor', asy
       });
     },
   );
+}
+
+test('reviews a long-form script and opens the rendered edit in the Editor', async ({
+  authenticatedPage: page,
+}) => {
+  test.setTimeout(120_000);
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const state: LongFormRouteState = { assembled: false };
+  await routeLongFormRun(page, state);
   await page.route('**/editor-projects/long-form-edit**', async (route) => {
     await route.fulfill({
       json: {
@@ -210,11 +249,35 @@ test('reviews a long-form script and opens the rendered edit in the Editor', asy
     page.getByText('1 of 1 parts ready', { exact: true }),
   ).toBeVisible();
   await expect(
+    page.getByText(
+      'The whole video still costs about 4 credits. Each step asks before it charges.',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
     page.getByRole('button', { name: 'Render presenter' }),
   ).toBeEnabled();
 
   await page.getByRole('button', { name: 'Open the edit' }).click();
-  await expect.poll(() => assembled).toBe(true);
+  await expect.poll(() => state.assembled).toBe(true);
   await expect(page).toHaveURL(/\/editor\/long-form-edit$/);
   expect(pageErrors).toEqual([]);
+});
+
+test('makes a copy of the long-form video in another language', async ({
+  authenticatedPage: page,
+}) => {
+  const state: LongFormRouteState = { assembled: false };
+  await routeLongFormRun(page, state);
+
+  await page.goto(`${base}/${run.id}`);
+  await assertNoErrorBoundaryFallback(page);
+  await expect(
+    page.getByRole('region', { name: 'Another language' }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Make a copy in this language' })
+    .click();
+  await expect.poll(() => state.translatedTo).toBe('es');
+  await expect(page).toHaveURL(/\/storyboard\/long-form-run-es$/);
 });
