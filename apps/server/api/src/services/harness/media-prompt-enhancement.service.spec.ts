@@ -360,7 +360,8 @@ describe('MediaPromptEnhancementService', () => {
           contentType: 'video',
           model: 'admin/default-text',
           stage,
-          error: expect.any(String),
+          errorName:
+            stage === 'response' ? 'PromptEnhancementResponseError' : 'Error',
         };
         if (stage === 'provider') {
           // An unreachable text model is an operator configuration error.
@@ -382,7 +383,7 @@ describe('MediaPromptEnhancementService', () => {
             ...logger.warn.mock.calls,
             ...logger.error.mock.calls,
           ]),
-        ).not.toContain('Private guidance');
+        ).not.toContain(sensitive);
       },
     );
 

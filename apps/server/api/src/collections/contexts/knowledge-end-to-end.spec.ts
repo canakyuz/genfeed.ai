@@ -6,6 +6,9 @@ import { ContextEmbeddingProviderService } from '@api/collections/contexts/servi
 import { ContextEmbeddingWriteService } from '@api/collections/contexts/services/context-embedding-write.service';
 import { ContextsService } from '@api/collections/contexts/services/contexts.service';
 import { KnowledgeCaptureService } from '@api/collections/contexts/services/knowledge-capture.service';
+import { KnowledgeConflictDetectionService } from '@api/collections/contexts/services/knowledge-conflict-detection.service';
+import type { KnowledgeConflictVerdict } from '@api/collections/contexts/services/knowledge-conflict-judge.service';
+import { KnowledgeConflictLookupService } from '@api/collections/contexts/services/knowledge-conflict-lookup.service';
 import { KnowledgeContentRetrievalService } from '@api/collections/contexts/services/knowledge-content-retrieval.service';
 import { KnowledgeEmbeddingCompletionService } from '@api/collections/contexts/services/knowledge-embedding-completion.service';
 import { KnowledgeReceiptVerifierService } from '@api/collections/contexts/services/knowledge-receipt-verifier.service';
@@ -13,6 +16,7 @@ import { KnowledgeRecordsService } from '@api/collections/contexts/services/know
 import { KnowledgeSelectionService } from '@api/collections/contexts/services/knowledge-selection.service';
 import { KnowledgeSourceIngestService } from '@api/collections/contexts/services/knowledge-source-ingest.service';
 import { extractSourceText } from '@api/collections/contexts/utils/extract-source-text.util';
+import { InvalidKnowledgeSearchCursorError } from '@api/collections/contexts/utils/knowledge-search-cursor.util';
 import { AgentContextAssemblyService } from '@api/services/agent-context-assembly/agent-context-assembly.service';
 import { formatHarnessBrief } from '@api/services/harness/harness-brief.util';
 import {
@@ -22,6 +26,7 @@ import {
 import type { PrismaService } from '@api/shared/modules/prisma/prisma.service';
 import { brandAccessFixture } from '@api/shared/testing/brand-access.fixture';
 import {
+  KnowledgeConflictStatus,
   KnowledgeMemoryScope,
   KnowledgeProcessingState,
   KnowledgeSourceKind,
@@ -31,6 +36,7 @@ import {
 import { CONTEXT_EMBEDDING_DIMENSION } from '@genfeedai/contracts/constants';
 import type {
   BrandContentMemoryRetrievalParams,
+  BrandKnowledgeSearchParams,
   KnowledgeSourceIngestWorkflowInput,
 } from '@genfeedai/contracts/interfaces';
 import { PrismaClient } from '@genfeedai/prisma';
@@ -60,6 +66,7 @@ const migrations = [
   '20260917180000_knowledge_refresh_and_transcripts',
   '20260918120000_knowledge_capture_request_hash',
   '20261022090000_context_embedding_queue',
+  '20261027060000_knowledge_source_conflicts',
 ].map((name) =>
   readFileSync(
     new URL(
@@ -890,6 +897,517 @@ describePostgres('Brand Knowledge end to end (PostgreSQL + pgvector)', () => {
     expect(hits[0]?.citation).toMatchObject({
       version: 2,
       versionId: refreshed.version.id,
+    });
+  });
+  describe('Knowledge search', () => {
+    const search = (
+      actor: KnowledgeActor,
+      query: string,
+      extra: Partial<BrandKnowledgeSearchParams> = {},
+    ) =>
+      knowledgeContentRetrieval.searchBrandKnowledge({
+        brandId: actor.brandId ?? '',
+        limit: 6,
+        minRelevance: 0.6,
+        organizationId: actor.organizationId,
+        query,
+        userId: actor.userId,
+        ...extra,
+      });
+    const note = (title: string, text: string) =>
+      capture.capture(actorA, {
+        kind: KnowledgeSourceKind.TEXT,
+        purpose: KnowledgeSourcePurpose.BRAND_TRUTH,
+        scope: KnowledgeMemoryScope.BRAND,
+        text,
+        title,
+      });
+    const titles = (page: { hits: Array<{ source?: string }> }) =>
+      page.hits.map((hit) => hit.source);
+
+    it('returns a passage with an exact name even when its similarity is below the threshold', async () => {
+      await note(
+        'Grinder launch',
+        'The Zephyr-9 espresso grinder ships in March with a ceramic burr set.',
+      );
+      await note(
+        'Pricing',
+        'Plans start at $29 per month for the starter tier.',
+      );
+      const query = 'What does the Zephyr-9 cost?';
+
+      // Vector similarity alone misses it: only a few common words overlap.
+      expect(await retrieve(actorA, query, { minRelevance: 0.6 })).toEqual([]);
+
+      const page = await search(actorA, query);
+      expect(titles(page)).toEqual(['Grinder launch']);
+      expect(page.hits[0]?.relevance).toBeLessThan(0.6);
+      expect(page.nextCursor).toBeUndefined();
+    });
+
+    it('ranks an exact-name passage above an equally similar one without the name', async () => {
+      await note('Plain', 'Zephyr nine espresso grinder ships in March today.');
+      await note('Named', 'Zephyr-9 espresso grinder ships in March today.');
+
+      const page = await search(
+        actorA,
+        'Zephyr-9 espresso grinder ships March',
+        {
+          minRelevance: 0.3,
+        },
+      );
+
+      expect(titles(page)[0]).toBe('Named');
+    });
+
+    it('filters by capture date and source kind and keeps eligibility on every filter', async () => {
+      const older = await note('Older', 'Zephyr-9 grinder notes from January.');
+      const newer = await note('Newer', 'Zephyr-9 grinder notes from June.');
+      const olderVersion = await records.getCurrentVersion(
+        actorA,
+        older.source.id,
+      );
+      const newerVersion = await records.getCurrentVersion(
+        actorA,
+        newer.source.id,
+      );
+      // Evidence is immutable by trigger; the fixture backdates it directly.
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE knowledge_source_versions DISABLE TRIGGER USER',
+      );
+      await prisma.$executeRawUnsafe(
+        `UPDATE knowledge_source_versions SET "observedAt" = '2026-01-15T00:00:00Z' WHERE id = '${olderVersion.id}'`,
+      );
+      await prisma.$executeRawUnsafe(
+        `UPDATE knowledge_source_versions SET "observedAt" = '2026-06-15T00:00:00Z' WHERE id = '${newerVersion.id}'`,
+      );
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE knowledge_source_versions ENABLE TRIGGER USER',
+      );
+      await prisma.$executeRawUnsafe(
+        `UPDATE knowledge_sources SET kind = 'URL' WHERE id = '${newer.source.id}'`,
+      );
+      const query = 'Zephyr-9 grinder notes';
+
+      expect(titles(await search(actorA, query)).sort()).toEqual([
+        'Newer',
+        'Older',
+      ]);
+      const recent = await search(actorA, query, {
+        occurredFrom: new Date('2026-03-01T00:00:00Z'),
+      });
+      expect(titles(recent)).toEqual(['Newer']);
+      expect(recent.hits[0]?.occurredAt).toBe('2026-06-15T00:00:00.000Z');
+      expect(
+        titles(
+          await search(actorA, query, {
+            occurredTo: new Date('2026-03-01T00:00:00Z'),
+          }),
+        ),
+      ).toEqual(['Older']);
+      // Both ends are inclusive.
+      expect(
+        titles(
+          await search(actorA, query, {
+            occurredFrom: new Date('2026-01-15T00:00:00Z'),
+            occurredTo: new Date('2026-01-15T00:00:00Z'),
+          }),
+        ),
+      ).toEqual(['Older']);
+      expect(
+        titles(
+          await search(actorA, query, {
+            kinds: [KnowledgeSourceKind.URL],
+          }),
+        ),
+      ).toEqual(['Newer']);
+      expect(
+        await search(actorA, query, {
+          kinds: [KnowledgeSourceKind.URL],
+          occurredTo: new Date('2026-03-01T00:00:00Z'),
+        }),
+      ).toEqual({ hits: [] });
+
+      // A hidden source stays hidden whatever the filter.
+      await prisma.knowledgeSource.update({
+        data: { isVisible: false },
+        where: { id: newer.source.id },
+      });
+      expect(
+        await search(actorA, query, { kinds: [KnowledgeSourceKind.URL] }),
+      ).toEqual({ hits: [] });
+    });
+
+    it('pages deterministically and drops a source that becomes ineligible between pages', async () => {
+      const sources = [];
+      for (const word of ['alpha', 'bravo', 'charlie', 'delta', 'echo']) {
+        sources.push(
+          await note(`Note ${word}`, `Zephyr-9 grinder note about ${word}.`),
+        );
+      }
+      const query = 'Zephyr-9 grinder note';
+
+      const everything = await search(actorA, query, { limit: 12 });
+      expect(everything.hits).toHaveLength(5);
+      expect(everything.nextCursor).toBeUndefined();
+
+      const first = await search(actorA, query, { limit: 2 });
+      expect(first.hits).toHaveLength(2);
+      expect(first.nextCursor).toBeDefined();
+      expect(titles(first)).toEqual(titles(everything).slice(0, 2));
+
+      const second = await search(actorA, query, {
+        cursor: first.nextCursor,
+        limit: 2,
+      });
+      expect(titles(second)).toEqual(titles(everything).slice(2, 4));
+      expect(second.nextCursor).toBeDefined();
+
+      const third = await search(actorA, query, {
+        cursor: second.nextCursor,
+        limit: 2,
+      });
+      expect(titles(third)).toEqual(titles(everything).slice(4));
+      expect(third.nextCursor).toBeUndefined();
+
+      // The source that would have led the last page is hidden after page two.
+      const lastTitle = titles(everything)[4];
+      const hidden = sources.find(
+        (source) => source.source.title === lastTitle,
+      );
+      await prisma.knowledgeSource.update({
+        data: { isVisible: false },
+        where: { id: hidden?.source.id },
+      });
+      const afterHide = await search(actorA, query, {
+        cursor: second.nextCursor,
+        limit: 2,
+      });
+      expect(afterHide.hits).toEqual([]);
+      expect(afterHide.nextCursor).toBeUndefined();
+    });
+
+    it('lists matching passages oldest first with citations and pages through them', async () => {
+      const sources = [];
+      for (const [word, observedAt] of [
+        ['gamma', '2026-03-01T00:00:00Z'],
+        ['alpha', '2026-01-01T00:00:00Z'],
+        ['delta', '2026-04-01T00:00:00Z'],
+        ['beta', '2026-02-01T00:00:00Z'],
+      ] as const) {
+        const added = await note(
+          `Note ${word}`,
+          `Zephyr-9 grinder update about ${word}.`,
+        );
+        sources.push({ added, observedAt });
+      }
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE knowledge_source_versions DISABLE TRIGGER USER',
+      );
+      for (const { added, observedAt } of sources) {
+        const version = await records.getCurrentVersion(
+          actorA,
+          added.source.id,
+        );
+        await prisma.$executeRawUnsafe(
+          `UPDATE knowledge_source_versions SET "observedAt" = '${observedAt}' WHERE id = '${version.id}'`,
+        );
+      }
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE knowledge_source_versions ENABLE TRIGGER USER',
+      );
+      const query = 'Zephyr-9 grinder update';
+
+      const all = await search(actorA, query, { limit: 12, mode: 'timeline' });
+      expect(titles(all)).toEqual([
+        'Note alpha',
+        'Note beta',
+        'Note gamma',
+        'Note delta',
+      ]);
+      expect(all.hits.map((hit) => hit.occurredAt)).toEqual([
+        '2026-01-01T00:00:00.000Z',
+        '2026-02-01T00:00:00.000Z',
+        '2026-03-01T00:00:00.000Z',
+        '2026-04-01T00:00:00.000Z',
+      ]);
+      expect(all.hits.every((hit) => hit.citation)).toBe(true);
+
+      const first = await search(actorA, query, { limit: 3, mode: 'timeline' });
+      expect(titles(first)).toEqual(titles(all).slice(0, 3));
+      const second = await search(actorA, query, {
+        cursor: first.nextCursor,
+        limit: 3,
+        mode: 'timeline',
+      });
+      expect(titles(second)).toEqual(['Note delta']);
+      expect(second.nextCursor).toBeUndefined();
+
+      const window = await search(actorA, query, {
+        mode: 'timeline',
+        occurredFrom: new Date('2026-02-01T00:00:00Z'),
+        occurredTo: new Date('2026-03-01T00:00:00Z'),
+      });
+      expect(titles(window)).toEqual(['Note beta', 'Note gamma']);
+
+      // A ranked cursor is not a timeline cursor, and the reverse.
+      const ranked = await search(actorA, query, { limit: 1 });
+      await expect(
+        search(actorA, query, {
+          cursor: ranked.nextCursor,
+          mode: 'timeline',
+        }),
+      ).rejects.toThrow(InvalidKnowledgeSearchCursorError);
+    });
+
+    it('rejects a cursor from another query, filter set or tenant', async () => {
+      for (const word of ['alpha', 'bravo', 'charlie']) {
+        await note(`Note ${word}`, `Zephyr-9 grinder note about ${word}.`);
+      }
+      const query = 'Zephyr-9 grinder note';
+      const first = await search(actorA, query, { limit: 1 });
+      const cursor = first.nextCursor;
+      expect(cursor).toBeDefined();
+
+      await expect(
+        search(actorA, 'Another-1 query', { cursor, limit: 1 }),
+      ).rejects.toThrow(InvalidKnowledgeSearchCursorError);
+      await expect(
+        search(actorA, query, {
+          cursor,
+          kinds: [KnowledgeSourceKind.URL],
+          limit: 1,
+        }),
+      ).rejects.toThrow(InvalidKnowledgeSearchCursorError);
+      await expect(search(actorB, query, { cursor, limit: 1 })).rejects.toThrow(
+        InvalidKnowledgeSearchCursorError,
+      );
+      await expect(
+        search(actorA, query, { cursor: 'not-a-cursor', limit: 1 }),
+      ).rejects.toThrow(InvalidKnowledgeSearchCursorError);
+    });
+
+    it('never returns another tenant’s passage for an exact name', async () => {
+      await capture.capture(actorB, {
+        kind: KnowledgeSourceKind.TEXT,
+        purpose: KnowledgeSourcePurpose.BRAND_TRUTH,
+        scope: KnowledgeMemoryScope.BRAND,
+        text: 'Zephyr-9 is our secret codename.',
+        title: 'Other tenant codename',
+      });
+
+      expect(await search(actorA, 'Zephyr-9 codename')).toEqual({ hits: [] });
+    });
+  });
+  describe('Brand Truth conflicts', () => {
+    const prices = (text: string) => text.match(/\$\d+/g) ?? [];
+    let isJudgeAvailable = true;
+    let judgeCalls = 0;
+    /** Two prices for the same plan contradict; anything else is consistent. */
+    const judge = {
+      modelId: 'test-judge',
+      judge: async (
+        _organizationId: string,
+        a: { text: string },
+        b: { text: string },
+      ): Promise<KnowledgeConflictVerdict> => {
+        judgeCalls++;
+        if (!isJudgeAvailable) return { kind: 'unavailable' };
+        const [priceA] = prices(a.text);
+        const [priceB] = prices(b.text);
+        return priceA && priceB && priceA !== priceB
+          ? {
+              conflict: {
+                excerptA: priceA,
+                excerptB: priceB,
+                summary: 'The two sources give different prices.',
+              },
+              kind: 'conflict',
+            }
+          : { kind: 'consistent' };
+      },
+    };
+    let detection: KnowledgeConflictDetectionService;
+
+    beforeEach(() => {
+      isJudgeAvailable = true;
+      judgeCalls = 0;
+      detection = new KnowledgeConflictDetectionService(
+        prisma as unknown as PrismaService,
+        judge as never,
+      );
+    });
+
+    const truth = (
+      actor: KnowledgeActor,
+      scope: KnowledgeMemoryScope,
+      title: string,
+      text: string,
+      purpose = KnowledgeSourcePurpose.BRAND_TRUTH,
+    ) =>
+      capture.capture(actor, {
+        kind: KnowledgeSourceKind.TEXT,
+        purpose,
+        scope,
+        text,
+        title,
+      });
+
+    it('stores each judged pair once, in id order, within organization and brand scope', async () => {
+      const orgPricing = await truth(
+        actorAOrgOnly,
+        KnowledgeMemoryScope.ORG,
+        'Org pricing',
+        'Plans start at $29 per month for the starter tier.',
+      );
+      const brandPricing = await truth(
+        actorA,
+        KnowledgeMemoryScope.BRAND,
+        'Brand pricing',
+        'Plans start at $49 per month for the starter tier.',
+      );
+      const otherBrandPricing = await truth(
+        actorA2,
+        KnowledgeMemoryScope.BRAND,
+        'Other brand pricing',
+        'Plans start at $99 per month for the starter tier.',
+      );
+      await truth(
+        actorAOrgOnly,
+        KnowledgeMemoryScope.ORG,
+        'Mission',
+        'We help independent creators publish every single day.',
+      );
+      await truth(
+        actorAOrgOnly,
+        KnowledgeMemoryScope.ORG,
+        'Inspiration pricing',
+        'Plans start at $7 per month for the starter tier.',
+        KnowledgeSourcePurpose.INSPIRATION,
+      );
+      await truth(
+        actorB,
+        KnowledgeMemoryScope.ORG,
+        'Other tenant pricing',
+        'Plans start at $5 per month for the starter tier.',
+      );
+
+      const first = await detection.sweep();
+      expect(first.failed).toBe(0);
+      expect(first.scanned).toBe(5);
+
+      const conflicts = await prisma.knowledgeSourceConflict.findMany({
+        where: { organizationId: 'org-a', isDeleted: false },
+      });
+      const open = conflicts.filter(
+        (row) => row.status === KnowledgeConflictStatus.OPEN,
+      );
+      const pairKey = (row: { sourceAId: string; sourceBId: string }) =>
+        [row.sourceAId, row.sourceBId].sort().join('|');
+      expect(new Set(open.map(pairKey))).toEqual(
+        new Set([
+          [orgPricing.source.id, brandPricing.source.id].sort().join('|'),
+          [orgPricing.source.id, otherBrandPricing.source.id].sort().join('|'),
+        ]),
+      );
+      // Two brands never share a retrieval, so they are never compared.
+      expect(
+        conflicts.some(
+          (row) =>
+            pairKey(row) ===
+            [brandPricing.source.id, otherBrandPricing.source.id]
+              .sort()
+              .join('|'),
+        ),
+      ).toBe(false);
+      for (const row of conflicts) {
+        expect(row.versionAId < row.versionBId).toBe(true);
+      }
+      for (const row of open) {
+        expect(row.summary).toBeTruthy();
+        expect(row.excerptA).toMatch(/^\$\d+$/);
+        expect(row.excerptB).toMatch(/^\$\d+$/);
+      }
+      expect(
+        await prisma.knowledgeSourceConflict.count({
+          where: { organizationId: 'org-b' },
+        }),
+      ).toBe(0);
+
+      // The chat read path sees both open conflicts of the org-wide source, and
+      // another tenant sees none of them.
+      const lookup = new KnowledgeConflictLookupService(
+        prisma as unknown as PrismaService,
+      );
+      const orgVersion = await records.getCurrentVersion(
+        actorAOrgOnly,
+        orgPricing.source.id,
+      );
+      expect(
+        (await lookup.findOpenForVersions('org-a', [orgVersion.id])).map(
+          (row) => row.summary,
+        ),
+      ).toEqual([
+        'The two sources give different prices.',
+        'The two sources give different prices.',
+      ]);
+      expect(
+        await lookup.findOpenForVersions('org-b', [orgVersion.id]),
+      ).toEqual([]);
+
+      // Marking the org-wide version contradicted removes it from retrieval, so
+      // its conflicts stop being shown too.
+      await prisma.knowledgeSourceVersion.update({
+        data: { retrievalState: 'CONTRADICTED' },
+        where: { id: orgVersion.id },
+      });
+      expect(
+        await lookup.findOpenForVersions('org-a', [orgVersion.id]),
+      ).toEqual([]);
+
+      const callsAfterFirst = judgeCalls;
+      expect(await detection.sweep()).toEqual({ failed: 0, scanned: 0 });
+      expect(judgeCalls).toBe(callsAfterFirst);
+    });
+
+    it('stores nothing while the judge is unavailable and judges the pair once it is back', async () => {
+      await truth(
+        actorAOrgOnly,
+        KnowledgeMemoryScope.ORG,
+        'Org pricing',
+        'Plans start at $29 per month for the starter tier.',
+      );
+      const brandPricing = await truth(
+        actorA,
+        KnowledgeMemoryScope.BRAND,
+        'Brand pricing',
+        'Plans start at $49 per month for the starter tier.',
+      );
+      const version = await records.getCurrentVersion(
+        actorA,
+        brandPricing.source.id,
+      );
+
+      isJudgeAvailable = false;
+      const failed = await detection.scanVersion('org-a', version.id);
+      expect(failed).toMatchObject({ conflicts: 0, isComplete: false });
+      expect(
+        await prisma.knowledgeSourceConflict.count({
+          where: { organizationId: 'org-a' },
+        }),
+      ).toBe(0);
+
+      isJudgeAvailable = true;
+      const retried = await detection.scanVersion('org-a', version.id);
+      expect(retried).toMatchObject({ conflicts: 1, isComplete: true });
+      expect(
+        await prisma.knowledgeSourceConflict.count({
+          where: {
+            organizationId: 'org-a',
+            status: KnowledgeConflictStatus.OPEN,
+          },
+        }),
+      ).toBe(1);
     });
   });
 });

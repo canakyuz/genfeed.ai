@@ -17,7 +17,10 @@ import {
   MESSAGES_TYPE_QUERY_PARAM,
   resolveOrganizationModulePresentationAccess,
 } from '@genfeedai/contracts/constants';
-import type { SocialConversationStatus } from '@genfeedai/contracts/interfaces';
+import type {
+  SocialConversationStatus,
+  SocialInboxSyncRealtimeEvent,
+} from '@genfeedai/contracts/interfaces';
 import { useFeatureFlagContext } from '@genfeedai/hooks/feature-flags/provider';
 import type { SocialMessageModel } from '@genfeedai/models/social/social-message.model';
 import type { MessagesSurface } from '@genfeedai/props/messages/messages-conversation-sidebar.props';
@@ -27,11 +30,10 @@ import { usePlatformOAuthConnect } from '@hooks/auth/use-platform-oauth-connect/
 import { useOrgUrl } from '@hooks/navigation/use-org-url';
 import { SocialMessagesService } from '@services/social/messages.service';
 import LazyLoadingFallback from '@ui/loading/fallback/LazyLoadingFallback';
+import PaginationStepper from '@ui/navigation/pagination/PaginationStepper';
 import { Badge } from '@ui/primitives/badge';
 import { Button } from '@ui/primitives/button';
 import {
-  ChevronLeft,
-  ChevronRight,
   CircleCheck,
   LinkIcon,
   LockKeyhole,
@@ -42,7 +44,7 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 import { useRefreshInboxIndicators } from '@/components/shell/use-messages-unread-count';
@@ -393,6 +395,9 @@ export default function MessagesPage() {
 
   const refreshInboxIndicators = useRefreshInboxIndicators();
 
+  const syncResultHandlerRef = useRef<
+    ((event: SocialInboxSyncRealtimeEvent) => void) | null
+  >(null);
   const {
     conversationPagination,
     conversations,
@@ -411,6 +416,8 @@ export default function MessagesPage() {
   } = useMessagesConversations({
     getMessagesService,
     onClearSelectedConversationParam: clearSelectedConversationParam,
+    // The actions hook owns the notice, but it is created after this one.
+    onSyncResult: (event) => syncResultHandlerRef.current?.(event),
     onUnreadStateChange: refreshInboxIndicators,
     query: filters.query,
     requestedConversationId,
@@ -447,6 +454,7 @@ export default function MessagesPage() {
     handleRejectDraft,
     handleStatusChange,
     handleSync,
+    handleSyncResult,
     handleToggleConversationReference,
     handleToggleMessageReference,
     isConversationReferenced,
@@ -466,6 +474,8 @@ export default function MessagesPage() {
     selectedId,
     syncCredentials,
   });
+
+  syncResultHandlerRef.current = handleSyncResult;
 
   const error = actionError ?? loadError;
 
@@ -809,34 +819,21 @@ export default function MessagesPage() {
                   ))
                 )}
                 {messagePagination.totalPages > 1 ? (
-                  <div className="flex items-center justify-center gap-3 pt-3">
-                    <Button
-                      ariaLabel="Previous messages page"
-                      icon={<ChevronLeft className="size-4" />}
-                      isDisabled={!messagePagination.hasPrevious}
-                      onClick={() =>
-                        setMessagePage((page) => Math.max(1, page - 1))
-                      }
-                      size={ButtonSize.ICON}
-                      variant={ButtonVariant.GHOST}
-                      withWrapper={false}
-                    />
-                    <span className="text-xs text-gray-800">
-                      {translate('pagination.messagePage', {
-                        page: messagePagination.page,
-                        pages: messagePagination.totalPages,
-                      })}
-                    </span>
-                    <Button
-                      ariaLabel="Next messages page"
-                      icon={<ChevronRight className="size-4" />}
-                      isDisabled={!messagePagination.hasNext}
-                      onClick={() => setMessagePage((page) => page + 1)}
-                      size={ButtonSize.ICON}
-                      variant={ButtonVariant.GHOST}
-                      withWrapper={false}
-                    />
-                  </div>
+                  <PaginationStepper
+                    className="pt-3"
+                    hasNext={messagePagination.hasNext}
+                    hasPrevious={messagePagination.hasPrevious}
+                    nextLabel="Next messages page"
+                    onNext={() => setMessagePage((page) => page + 1)}
+                    onPrevious={() =>
+                      setMessagePage((page) => Math.max(1, page - 1))
+                    }
+                    previousLabel="Previous messages page"
+                    status={translate('pagination.messagePage', {
+                      page: messagePagination.page,
+                      pages: messagePagination.totalPages,
+                    })}
+                  />
                 ) : null}
               </div>
 

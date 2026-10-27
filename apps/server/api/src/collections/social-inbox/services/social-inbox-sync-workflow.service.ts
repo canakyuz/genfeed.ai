@@ -1,4 +1,5 @@
 import { SocialInboxService } from '@api/collections/social-inbox/services/social-inbox.service';
+import { SocialInboxRealtimeService } from '@api/collections/social-inbox/services/social-inbox-realtime.service';
 import {
   buildSocialInboxSyncWorkflowDefinition,
   SOCIAL_INBOX_SYNC_ACTION_IDS,
@@ -18,7 +19,8 @@ import {
   WorkflowExecutionTrigger,
 } from '@genfeedai/contracts';
 import { SystemWorkflowDispatchClass } from '@genfeedai/contracts/queue';
-import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { getErrorMessage } from '@libs/utils/error/get-error-message.util';
+import { Injectable, type OnModuleInit, Optional } from '@nestjs/common';
 
 const SOCIAL_INBOX_SYNC_SURFACES: ReadonlyArray<
   readonly [SocialInboxSyncPlatform, SocialInboxSyncConversationType]
@@ -32,12 +34,39 @@ const SOCIAL_INBOX_SYNC_SURFACES: ReadonlyArray<
   [Platform.LINKEDIN, SocialConversationType.DM],
 ];
 
+/**
+ * A sync that listed nothing because it could not run must fail the job, so a
+ * completed job always means the inbox was actually read.
+ */
+function assertSyncDiagnosable(
+  result: SocialInboxSyncResult,
+  input: SocialInboxSyncInput,
+): SocialInboxSyncResult {
+  if (result.credentialsScanned === 0 && input.credentialId) {
+    throw new Error(
+      'Inbox sync found no connected account for the selected credential. Reconnect the account and sync again.',
+    );
+  }
+  const failures = result.postFailures ?? [];
+  if (
+    failures.length > 0 &&
+    failures.length === (result.postsScanned ?? failures.length)
+  ) {
+    throw new Error(
+      `Inbox sync failed for all ${failures.length} scanned post(s): ${failures[0]?.errorName}: ${failures[0]?.message}`,
+    );
+  }
+  return result;
+}
+
 @Injectable()
 export class SocialInboxSyncWorkflowService implements OnModuleInit {
   constructor(
     private readonly socialInboxService: SocialInboxService,
     private readonly workflowRunner: SystemWorkflowRunnerService,
     private readonly workflowQueue: WorkflowExecutionQueueService,
+    @Optional()
+    private readonly realtime?: SocialInboxRealtimeService,
   ) {}
 
   onModuleInit(): void {
@@ -144,7 +173,7 @@ export class SocialInboxSyncWorkflowService implements OnModuleInit {
     };
   }
 
-  private ingestAction(
+  private async ingestAction(
     action: SystemWorkflowActionRequest,
     executor: (
       scope: {
@@ -162,7 +191,34 @@ export class SocialInboxSyncWorkflowService implements OnModuleInit {
       userId: input.userId,
     };
     const options = { credentialId: input.credentialId, limit: input.limit };
-    return executor(scope, options);
+    const surface = {
+      conversationType: (input.conversationType ??
+        SocialConversationType.COMMENT) as 'comment' | 'dm',
+      platform: String(input.platform ?? Platform.YOUTUBE),
+    };
+    try {
+      const result = assertSyncDiagnosable(
+        await executor(scope, options),
+        input,
+      );
+      await this.realtime?.emitSyncResult(input.organizationId, {
+        ...surface,
+        commentsSeen: result.commentsSeen,
+        conversationsCreated: result.conversationsCreated,
+        kind: 'sync-completed',
+        messagesCreated: result.messagesCreated,
+        postFailureCount: result.postFailures?.length,
+        postsScanned: result.postsScanned,
+      });
+      return result;
+    } catch (error: unknown) {
+      await this.realtime?.emitSyncResult(input.organizationId, {
+        ...surface,
+        kind: 'sync-failed',
+        message: getErrorMessage(error).slice(0, 200),
+      });
+      throw error;
+    }
   }
 
   private readInput(value: unknown): SocialInboxSyncInput {

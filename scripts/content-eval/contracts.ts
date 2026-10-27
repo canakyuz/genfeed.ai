@@ -13,6 +13,7 @@ import type { ZodType } from 'zod';
 import { z } from 'zod';
 import { matchSchema } from './bench/schema';
 import { calibrationSectionSchema } from './calibration/contracts';
+import { noiseSectionSchema } from './noise/contracts';
 import {
   outlierSectionSchema,
   outlierThresholdsSchema,
@@ -35,6 +36,9 @@ import {
 export * from './rows';
 
 export const CONTENT_EVAL_REPORT_SCHEMA_VERSION = 1;
+
+/** Upper bound on `--repeats`; more repeats than this is a budget decision, not a default. */
+export const MAX_REPEATS = 10;
 
 export const DISPATCHER_KINDS = ['stub', 'live'] as const;
 export type DispatcherKind = (typeof DISPATCHER_KINDS)[number];
@@ -71,8 +75,12 @@ export type ContentEvalThresholds = typeof CONTENT_EVAL_THRESHOLDS;
 export const contestantSchema = z.object({
   /** Stable id within a run, e.g. `openai/gpt-5.6-luna` or `…#brief`. */
   id: z.string().min(1),
-  /** Guidance arm for harness A/B; `raw` sends the prompt alone. */
-  guidanceArm: z.enum(['raw', 'brief']),
+  /**
+   * Guidance arm for the text A/Bs: `raw` sends the prompt alone, `brief`
+   * adds the fixture's guidance, `product` generates through the product API
+   * with the eval organization's own brand context.
+   */
+  guidanceArm: z.enum(['raw', 'brief', 'product']),
   isCompiled: z.boolean().default(false),
   registryKey: z.string().min(1),
 });
@@ -86,6 +94,8 @@ export const suiteConfigSchema = z.object({
   maxCredits: z.number().positive(),
   /** Outlier cut (#5234); the report records the defaults when unset. */
   outlierThresholds: outlierThresholdsSchema.optional(),
+  /** Answers per case and contestant (#5600); above 1 enables grade-twice. */
+  repeats: z.number().int().min(1).max(MAX_REPEATS).default(1),
   seed: z.number().int(),
   suite: z.enum(SUITE_NAMES),
   tieBand: z.number().min(0).max(1),
@@ -127,7 +137,21 @@ export interface EvalUsage {
   promptTokens: number;
 }
 
+/**
+ * Why the model stopped. `length`: it hit the token limit, so the output is
+ * cut off. Null when the route does not report one.
+ */
+export const EVAL_FINISH_REASONS = [
+  'stop',
+  'length',
+  'content-filter',
+  'other',
+] as const;
+export type EvalFinishReason = (typeof EVAL_FINISH_REASONS)[number];
+
 export interface EvalStructuredResponse<TResult> {
+  /** The last attempt's finish reason; a repaired answer reports the repair. */
+  finishReason: EvalFinishReason | null;
   latencyMs: number;
   /** Resolved model id the provider actually served. */
   modelVersion: string;
@@ -183,6 +207,8 @@ export const callProvenanceSchema = z.object({
   ]),
   credits: z.number().nonnegative(),
   family: z.string().min(1),
+  /** Why the model stopped; `length` marks a cut-off output. */
+  finishReason: z.enum(EVAL_FINISH_REASONS).nullable().default(null),
   /** The call errored (provider, schema repair, timeout) but was still charged. */
   isFailed: z.boolean().default(false),
   kind: z.enum(CALL_ROLES),
@@ -303,6 +329,8 @@ export const contentEvalReportSchema = z.object({
   outcome: suiteOutcomeSchema,
   /** Owned by #4926; narrowed by `media/` when it lands. */
   media: z.unknown().optional(),
+  /** Noise section (#5600): intervals, paired verdicts and diagnostics. */
+  noise: noiseSectionSchema.optional(),
   /** Outlier section (#5234): capped cases plus per-contestant rates. */
   outliers: outlierSectionSchema.optional(),
   passed: z.boolean(),
@@ -453,9 +481,19 @@ export interface MeteredCallResult<TResult> {
 }
 
 export interface StubDispatcherOptions {
+  /**
+   * Registry keys whose generations stop at the token limit, billed at the
+   * full limit: a cut-off fixture (#5600).
+   */
+  cutOffModels?: string[];
   /** Registry keys whose calls fail, to exercise void handling. */
   failingModels?: string[];
   isFirstAlwaysPreferred?: boolean;
+  /**
+   * Some pointwise gradings are shifted, so the same text can be graded
+   * differently twice: a flaky-judge fixture (#5600).
+   */
+  isJudgeFlaky?: boolean;
   qualityOf?: (content: string) => number;
   usdPerToken?: number;
 }
@@ -517,7 +555,7 @@ export interface ReportAnalyzerInput {
 /** Adds a report section from already-scored results; never calls a model. */
 export interface ReportAnalyzer {
   analyze(input: ReportAnalyzerInput): unknown;
-  readonly key: 'outliers';
+  readonly key: 'noise' | 'outliers';
   summaryLines?(report: ContentEvalReport): string[];
 }
 
@@ -545,6 +583,8 @@ export interface ContentEvalRunOptions {
   models: string[];
   now?: Date;
   outlierThresholds?: unknown;
+  /** Answers per case and contestant; defaults to 1. */
+  repeats?: number;
   runId?: string;
   seed: number;
   suite: SuiteName;
@@ -563,6 +603,7 @@ export interface ContentEvalCliArgs {
   maxCredits: number;
   models: string[];
   out: string | null;
+  repeats: number;
   seed: number;
   suite: SuiteName;
   tieBand: number;

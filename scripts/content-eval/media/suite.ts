@@ -110,7 +110,7 @@ function readList(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
-function readPairs(
+export function readPairs(
   raw: string | undefined,
   flag: string,
 ): Array<[string, string]> {
@@ -214,7 +214,7 @@ function readCalibration(
   };
 }
 
-async function readLiveApiKey(): Promise<string> {
+export async function readLiveApiKey(): Promise<string> {
   const { ConfigService } = await import('@libs/config/config.service');
   const key = new ConfigService().get('CONTENT_EVAL_GENFEED_API_KEY')?.trim();
   if (!key) {
@@ -330,6 +330,7 @@ function buildSpendPort(ledger: EvalSpendLedger): MediaSpendPort {
           costUsd: input.credits * 0.01,
           credits: input.credits,
           family: input.contestant.family,
+          finishReason: null,
           isFailed: false,
           kind: 'generation',
           latencyMs: 0,

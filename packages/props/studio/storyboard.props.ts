@@ -7,6 +7,8 @@ import type { BrandRemixRunSummary } from '@genfeedai/contracts/api-types/contra
 import type { QuoteBrandRemixScenes } from '@genfeedai/contracts/api-types/contracts/brand-remix-scene.contract';
 import type {
   StoryboardARollQuote,
+  StoryboardLongFormAssembly,
+  StoryboardLongFormEstimate,
   StoryboardPresenterTrack,
 } from '@genfeedai/contracts/api-types/contracts/storyboard-a-roll.contract';
 import type { StoryboardCharacterReplacement } from '@genfeedai/contracts/api-types/contracts/storyboard-character-replace.contract';
@@ -16,7 +18,10 @@ import type {
   StoryboardSegment,
   StoryboardShot,
 } from '@genfeedai/contracts/api-types/contracts/storyboard-plan.contract';
-import type { StoryboardRun } from '@genfeedai/contracts/api-types/contracts/storyboard-run.contract';
+import type {
+  StoryboardRun,
+  StoryboardTranslationLanguage,
+} from '@genfeedai/contracts/api-types/contracts/storyboard-run.contract';
 import type { StoryboardRunCapabilities } from '@genfeedai/contracts/api-types/contracts/storyboard-run-capabilities.contract';
 import type { StoryboardRunSummary } from '@genfeedai/contracts/api-types/contracts/storyboard-run-summary.contract';
 import type { StoryboardSourceSelector } from '@genfeedai/contracts/api-types/contracts/storyboard-source.contract';
@@ -243,10 +248,20 @@ export interface StoryboardLongFormActions {
     track: StoryboardPresenterTrack,
     quote: StoryboardARollQuote,
   ) => Promise<StoryboardRun>;
-  /** Opens the animatic or the finished edit; resolves to the Editor project id. */
+  /** Everything the video still costs at this revision; charges nothing. */
+  readonly estimateLongForm: (
+    revision: number,
+    signal?: AbortSignal,
+  ) => Promise<StoryboardLongFormEstimate>;
+  /** Copies the storyboard with its script in another language; returns the copy. */
+  readonly translateLongForm: (
+    revision: number,
+    language: StoryboardTranslationLanguage,
+  ) => Promise<StoryboardRun>;
+  /** Opens the animatic or the finished edit as an Editor project. */
   readonly assembleLongForm: (
     track: StoryboardPresenterTrack,
-  ) => Promise<string>;
+  ) => Promise<StoryboardLongFormAssembly>;
 }
 
 export interface StoryboardLongFormBoardProps {
