@@ -148,6 +148,15 @@ export const GENERATION_TYPES: readonly GenerationTypeEntry[] = [
   },
   {
     enumRefs: {},
+    id: 'calendar-slot-copy',
+    marker: 'resolveBrief',
+    note: 'Calendar Generate composes the harness brief for the slot brand and format (contentType post, or article for article slots) and fails with a retryable 503 before pricing or credits when it is unavailable. The campaign and slot briefs stay quoted data.',
+    path: 'harness',
+    smoke: null,
+    source: `${API}/collections/posting-cadences/services/posting-cadence-copy.service.ts`,
+  },
+  {
+    enumRefs: {},
     id: 'skill-handlers',
     marker: 'resolveBrief',
     note: 'The content-writing, trend-remix and content-geo-optimizer skill handlers write against the composed harness brief through SkillBrandBriefService (contentType post, or article for the GEO rewrite) and fail with a retryable 503 when it is unavailable; there is no brand-voice-string fallback.',
